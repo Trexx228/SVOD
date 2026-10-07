@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+{% include 'admin_panel/_redirect_notice.html' with cabinet_url='/manager/' %}
+{% if is_narrow_scope %}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 40%,var(--line));
+            margin-bottom:14px;padding:10px 16px;font-size:13px">
+    Показаны данные только по вашему подразделению:
+    <b>{{ scope_department.name }}</b>.
+</div>
+{% endif %}
+
+<style>
+    .ss-tabs{display:flex;gap:8px;margin-bottom:14px}
+    .ss-filter{display:grid;grid-template-columns:1.4fr 1.4fr 1fr 1fr 1fr auto;
+               gap:10px;align-items:end;margin-bottom:14px}
+    @media(max-width:900px){.ss-filter{grid-template-columns:1fr 1fr 1fr}}
+    .ss-filter label{margin:0 0 4px}
+
+    .ss-table{width:100%;border-collapse:collapse;font-size:13px}
+    .ss-table th,.ss-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:top}
+    .ss-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .ss-table tbody tr:hover{background:var(--soft)}
+    .ss-h{font-weight:800;color:var(--green);white-space:nowrap}
+    .ss-task a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ss-task a:hover{text-decoration:underline}
+    .ss-meta{color:var(--muted);font-size:11px}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;
+           margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Сессии · {{ total }}</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span class="pill">часов: <b>{{ total_hours|floatformat:1 }}</b></span>
+            <a class="btn gray"
+               href="{% url 'settings_sessions_export' %}{% if page_qs %}?{{ page_qs }}{% endif %}">
+                Экспорт CSV
+            </a>
+            <a class="pill" href="{% url 'settings_sessions_summary' %}">Сводка по людям →</a>
+        </div>
+    </div>
+
+    <div class="ss-tabs">
+        <a class="pill {% if tab == 'work' %}on{% endif %}"
+           href="?tab=work{% if user_pk %}&user={{ user_pk }}{% endif %}{% if task_pk %}&task={{ task_pk }}{% endif %}">
+            Работа (TimeSession)
+        </a>
+        <a class="pill {% if tab == 'shop' %}on{% endif %}"
+           href="?tab=shop{% if user_pk %}&user={{ user_pk }}{% endif %}{% if task_pk %}&task={{ task_pk }}{% endif %}">
+            Цех (ShopSession)
+        </a>
+    </div>
+
+    <form method="get" class="ss-filter">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <div>
+            <label>Сотрудник</label>
+            <select name="user">
+                <option value="">— любой —</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}" {% if user_pk == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>ID задачи</label>
+            <input name="task" value="{{ task_pk }}" placeholder="например, 42">
+        </div>
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div>
+            <label>Мин. часов</label>
+            <input name="min_hours" value="{{ min_hours }}" placeholder="например, 2">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="?tab={{ tab }}">Сброс</a>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="ss-table">
+            <thead>
+            {% if tab == 'work' %}
+            <tr>
+                <th>Завершено</th>
+                <th>Сотрудник</th>
+                <th>Задача</th>
+                <th>Часов</th>
+                <th>Старт</th>
+                <th>Статус на закрытии</th>
+                <th>Комментарий</th>
+            </tr>
+            {% else %}
+            <tr>
+                <th>Выход в цех</th>
+                <th>Сотрудник</th>
+                <th>Задача</th>
+                <th>Часов</th>
+                <th>Возврат</th>
+                <th>Состояние</th>
+            </tr>
+            {% endif %}
+            </thead>
+            <tbody>
+            {% if tab == 'work' %}
+            {% for s in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ s.finished_at|date:'d.m.Y H:i' }}</td>
+                <td>{{ s.executor.full_name|default:'—' }}</td>
+                <td class="ss-task">
+                    <a href="/tasks/task/{{ s.task.pk }}/" target="_blank">#{{ s.task.pk }} · {{ s.task.title|truncatechars:50 }}</a>
+                </td>
+                <td class="ss-h">{{ s.duration_hours|floatformat:2 }} ч</td>
+                <td style="white-space:nowrap">{{ s.started_at|date:'d.m.Y H:i' }}</td>
+                <td>{{ s.get_status_at_close_display }}</td>
+                <td class="ss-meta">{{ s.comment|truncatechars:80|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px 0">
+                Сессий по фильтрам нет.
+            </td></tr>
+            {% endfor %}
+            {% else %}
+            {% for s in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ s.started_at|date:'d.m.Y H:i' }}</td>
+                <td>{{ s.executor.full_name|default:'—' }}</td>
+                <td class="ss-task">
+                    <a href="/tasks/task/{{ s.task.pk }}/" target="_blank">#{{ s.task.pk }} · {{ s.task.title|truncatechars:50 }}</a>
+                </td>
+                <td class="ss-h">
+                    {% if s.finished_at %}{{ s.duration_hours|floatformat:2 }} ч
+                    {% else %}<span style="color:var(--orange)">в процессе</span>{% endif %}
+                </td>
+                <td style="white-space:nowrap">
+                    {% if s.finished_at %}{{ s.finished_at|date:'d.m.Y H:i' }}{% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if s.finished_at %}
+                    <span class="ss-meta">завершён</span>
+                    {% else %}
+                    <span style="color:var(--green);font-weight:700">активен</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px 0">
+                Сессий по фильтрам нет.
+            </td></tr>
+            {% endfor %}
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

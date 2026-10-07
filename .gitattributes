@@ -1,0 +1,22 @@
+# Automatically detect text files, store with LF
+* text=auto eol=lf
+
+# Windows scripts — CRLF, otherwise cmd.exe may break
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files — do not touch
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.docx binary
+*.zip binary
+*.sqlite3 binary
+# Скрипты и Dockerfile — всегда LF, иначе Linux-контейнер упадёт.
+*.sh       text eol=lf
+Dockerfile text eol=lf
+*.yml      text eol=lf

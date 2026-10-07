@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Роли · {{ roles|length }}</h3>
+        <a class="btn green" href="{% url 'settings_role_new' %}">+ Новая роль</a>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Название</th>
+            <th>Код</th>
+            <th>Сотрудники</th>
+            <th>Руководитель</th>
+            <th>Админ</th>
+            <th>Директор</th>
+            <th style="text-align:right;width:280px">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in roles %}
+        <tr>
+            <td><b>{{ r.name }}</b>
+                {% if r.description %}<br><span style="color:var(--muted);font-size:12px">{{ r.description }}</span>{% endif %}
+            </td>
+            <td><code>{{ r.code }}</code></td>
+            <td>{{ r.user_count }}</td>
+            <td>{% if r.can_manage %}✓{% else %}—{% endif %}</td>
+            <td>{% if r.can_admin %}✓{% else %}—{% endif %}</td>
+            <td>{% if r.can_plant %}✓{% else %}—{% endif %}</td>
+            <td style="text-align:right">
+                <div style="display:inline-flex;gap:6px;justify-content:flex-end">
+                    <a class="btn blue" href="{% url 'settings_role_edit' r.pk %}"
+                       style="padding:6px 12px;font-size:13px;min-width:110px;text-align:center;box-sizing:border-box">
+                        Изменить
+                    </a>
+                    {% if r.user_count %}
+                    <a class="btn gray" href="{% url 'settings_role_reassign' r.pk %}"
+                       style="padding:6px 12px;font-size:13px;min-width:130px;text-align:center;box-sizing:border-box"
+                       title="Перевести пользователей на другую роль">
+                        Переназначить
+                    </a>
+                    {% else %}
+                    <form method="post" action="{% url 'settings_role_delete' r.pk %}"
+                          style="display:inline;margin:0"
+                          data-confirm="Удалить роль «{{ r.name }}»?">
+                        {% csrf_token %}
+                        <button type="submit" class="btn red"
+                                style="padding:6px 12px;font-size:13px;min-width:130px;text-align:center;box-sizing:border-box">
+                            Удалить
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px 0">
+            Ролей пока нет — создайте первую.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

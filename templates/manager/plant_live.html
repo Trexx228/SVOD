@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .live-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+
+    .live-tile{
+        background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;
+        box-shadow:var(--shadow);text-decoration:none;color:inherit;cursor:pointer;
+        display:flex;flex-direction:column;min-height:120px;
+        transition:transform .12s, box-shadow .12s, border-color .12s;
+    }
+    .live-tile:hover{transform:translateY(-2px);border-color:var(--blue);
+                     box-shadow:0 10px 24px rgba(37,99,235,.18)}
+    .live-tile.active{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue)}
+    .live-tile .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;
+                    letter-spacing:.5px;font-weight:700}
+    .live-tile .num{font-size:28px;font-weight:800;margin-top:4px}
+    .live-tile.online .num{color:var(--green)}
+    .live-tile.shop .num{color:var(--blue)}
+    .live-tile.urgent .num{color:var(--red)}
+    .live-tile .go{margin-top:auto;padding-top:10px;
+                   color:var(--blue);font-size:11px;font-weight:700}
+
+    .dept-block{margin-bottom:20px}
+    .dept-block h3{margin:0 0 10px;font-size:15px;font-weight:800;color:var(--muted);
+                   text-transform:uppercase;letter-spacing:.6px}
+    .dept-block h3 .cnt{color:var(--ink);font-weight:700;text-transform:none;
+                        letter-spacing:0;margin-left:8px;font-size:13px}
+
+    .live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+
+    .p-card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+            padding:12px 14px;display:flex;flex-direction:column;gap:6px;
+            transition:border-color .12s}
+    .p-card:hover{border-color:var(--blue)}
+    .p-card.stuck{border-left:4px solid var(--red)}
+    .p-card.working{border-left:4px solid var(--green)}
+    .p-card.in-shop{border-left:4px solid var(--blue)}
+    .p-card.idle{border-left:4px solid var(--gray);opacity:.75}
+
+    .p-name{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
+    .p-name .online{width:8px;height:8px;border-radius:999px;background:var(--green);
+                    box-shadow:0 0 0 4px color-mix(in srgb,var(--green) 25%,transparent)}
+    .p-name .offline{width:8px;height:8px;border-radius:999px;background:var(--gray)}
+    .p-name a{color:var(--ink);text-decoration:none}
+    .p-name a:hover{color:var(--blue)}
+
+    .p-task{font-size:13px;line-height:1.4}
+    .p-task a{color:var(--ink);text-decoration:none}
+    .p-task .label{color:var(--muted);font-size:11px;text-transform:uppercase;
+                   letter-spacing:.4px;font-weight:700;display:block;margin-bottom:2px}
+
+    .p-badge{display:inline-block;padding:2px 8px;border-radius:999px;
+             font-size:11px;font-weight:700;margin-right:4px}
+    .p-badge.shop{background:color-mix(in srgb,var(--blue) 20%,transparent);color:var(--blue)}
+    .p-badge.urgent{background:var(--red);color:#fff;animation:urgentPulse 1.2s infinite}
+    .p-badge.overdue{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    @keyframes urgentPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.7)}
+                           50%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}
+
+    .p-open{font-size:12px;color:var(--blue);text-decoration:none;
+            margin-top:auto;padding-top:8px;font-weight:700}
+    .p-open:hover{text-decoration:underline}
+</style>
+
+{% include 'manager/_nav.html' with page_title="Кто чем занят" %}
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <a class="pill" href="{% url 'manager_plant' %}">Таблица по отделам</a>
+    <span class="pill" style="background:var(--soft);color:var(--muted)">Обновлено {{ now|date:'H:i:s' }}</span>
+</div>
+
+<div class="live-tiles">
+    <a class="live-tile online {% if filter == 'online' %}active{% endif %}" href="?filter=online">
+        <div class="lbl">Онлайн (15 мин)</div>
+        <div class="num">{{ total_online }} / {{ total_people }}</div>
+        <span class="go">Показать →</span>
+    </a>
+    <a class="live-tile {% if filter == 'work' %}active{% endif %}" href="?filter=work">
+        <div class="lbl">В работе</div>
+        <div class="num">{{ total_in_progress }}</div>
+        <span class="go">Показать →</span>
+    </a>
+    <a class="live-tile shop {% if filter == 'shop' %}active{% endif %}" href="?filter=shop">
+        <div class="lbl">В цеху</div>
+        <div class="num">{{ total_in_shop }}</div>
+        <span class="go">Показать →</span>
+    </a>
+    <a class="live-tile urgent {% if filter == 'urgent' %}active{% endif %}" href="?filter=urgent">
+        <div class="lbl">Срочных не взято</div>
+        <div class="num">{{ total_urgent_stuck }}</div>
+        <span class="go">Показать →</span>
+    </a>
+</div>
+
+{% if filter %}
+<div style="margin:-6px 0 14px">
+    <span class="pill on">Фильтр: {% if filter == 'online' %}онлайн{% elif filter == 'work' %}в работе{% elif filter == 'shop' %}в цеху{% elif filter == 'urgent' %}невзятые срочные{% endif %}</span>
+    <a class="pill" href="?" style="margin-left:6px">✕ Сбросить</a>
+</div>
+{% endif %}
+
+{% for dept_name, people in by_dept.items %}
+<div class="dept-block">
+    <h3>{{ dept_name }} <span class="cnt">{{ people|length }} чел.</span></h3>
+    <div class="live-grid">
+        {% for p in people %}
+        <div class="p-card {% if p.urgent_new %}stuck{% elif p.shop %}in-shop{% elif p.current %}working{% elif not p.online %}idle{% endif %}">
+            <div class="p-name">
+                <span class="{% if p.online %}online{% else %}offline{% endif %}"></span>
+                <a href="{% url 'manager_person' p.user.pk %}">{{ p.user.full_name }}</a>
+            </div>
+            {% if p.shop %}
+            <div class="p-task">
+                <span class="label">В цеху</span>
+                <span class="p-badge shop">🏭 {{ p.shop_minutes }} мин</span>
+                <a href="{% url 'task_detail' p.shop.task.pk %}">{{ p.shop.task.title }}</a>
+            </div>
+            {% endif %}
+            {% if p.current %}
+            <div class="p-task">
+                <span class="label">Сейчас в работе</span>
+                <a href="{% url 'task_detail' p.current.pk %}">{{ p.current.title }}</a>
+            </div>
+            {% endif %}
+            {% if p.urgent_new %}
+            <div class="p-task">
+                <span class="label">Срочных не взято</span>
+                {% for t in p.urgent_new %}
+                <div style="margin-bottom:4px">
+                    <span class="p-badge urgent">🔥 {{ p.urgent_oldest_min }} мин</span>
+                    <a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if p.overdue %}<div class="p-task"><span class="p-badge overdue">просрочено: {{ p.overdue }}</span></div>{% endif %}
+            {% if not p.current and not p.shop and not p.urgent_new %}
+            <div class="p-task" style="color:var(--muted)">{% if p.online %}Свободен{% else %}Не в сети{% endif %}</div>
+            {% endif %}
+            <a class="p-open" href="{% url 'manager_person' p.user.pk %}">Открыть карточку →</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<div class="card">Никого не найдено по текущему фильтру.</div>
+{% endfor %}
+
+<script>setTimeout(function(){window.location.reload();},30000);</script>
+{% endblock %}

@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .tg-wrap{display:grid;grid-template-columns:320px 1fr;gap:0;
+             height:calc(100vh - 64px - 56px - 28px);
+             border:1px solid var(--line);border-radius:16px;overflow:hidden;
+             background:var(--card);box-shadow:var(--shadow)}
+  @media(max-width:900px){
+    .tg-wrap{grid-template-columns:1fr;
+             height:calc(100vh - 64px - 40px)}
+    .tg-list{display:block;border-right:0}
+    .tg-chat{display:none}
+    .tg-wrap.has-thread .tg-list{display:none}
+    .tg-wrap.has-thread .tg-chat{display:flex}
+    .tg-back{display:inline-flex !important}
+    .tg-head{padding:10px 12px}
+    .tg-body{padding:10px}
+    .tg-bubble{max-width:85%}
+    .tg-input{padding:8px}
+    .tg-input textarea{font-size:13px}
+  }
+  .tg-back{display:none;
+           align-items:center;justify-content:center;
+           width:36px;height:36px;border-radius:10px;
+           color:var(--muted);text-decoration:none;font-size:20px;
+           background:var(--soft);flex:none}
+  .tg-back:hover{background:var(--softblue);color:var(--blue)}
+
+    /* ── левая колонка ── */
+    .tg-list{background:var(--soft);border-right:1px solid var(--line);
+             display:flex;flex-direction:column;min-height:0}
+    .tg-search{padding:10px;border-bottom:1px solid var(--line)}
+    .tg-search input{padding:8px 12px;border-radius:10px;font-size:13px;width:100%}
+    .tg-scroll{flex:1;overflow-y:auto;min-height:0}
+    .tg-item{display:flex;gap:10px;padding:10px 12px;cursor:pointer;
+             border-bottom:1px solid var(--line);text-decoration:none;color:inherit;
+             transition:background .12s}
+    .tg-item:hover{background:var(--softblue)}
+    .tg-item.on{background:var(--softblue);border-left:3px solid var(--blue);padding-left:9px}
+    .tg-ava{width:40px;height:40px;border-radius:999px;flex:none;
+            background:linear-gradient(135deg,var(--blue),var(--green));
+            color:#fff;font-weight:800;display:flex;align-items:center;
+            justify-content:center;font-size:15px}
+    .tg-mid{flex:1;min-width:0}
+    .tg-name{font-weight:700;font-size:14px;white-space:nowrap;
+             overflow:hidden;text-overflow:ellipsis}
+    .tg-prev{color:var(--muted);font-size:12px;white-space:nowrap;
+             overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+    .tg-right{text-align:right;flex:none;display:flex;flex-direction:column;
+              align-items:flex-end;gap:4px}
+    .tg-time{color:var(--muted);font-size:11px}
+    .tg-unread{background:var(--red);color:#fff;border-radius:999px;
+               padding:1px 7px;font-size:11px;font-weight:700;min-width:20px;
+               text-align:center}
+
+    /* ── правая колонка ── */
+    .tg-chat{display:flex;flex-direction:column;min-height:0;min-width:0}
+    .tg-head{padding:12px 16px;border-bottom:1px solid var(--line);
+             display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .tg-head h3{margin:0;font-size:16px}
+    .tg-head .sub{color:var(--muted);font-size:12px;margin-top:2px}
+    .tg-body{flex:1;overflow-y:auto;padding:16px;display:flex;
+             flex-direction:column;gap:4px;background-image:var(--grad)}
+    .tg-sep{text-align:center;color:var(--muted);font-size:11px;margin:10px 0 6px}
+    .tg-row{display:flex;margin:2px 0}
+    .tg-row.own{justify-content:flex-end}
+    .tg-bubble{max-width:70%;padding:8px 12px;border-radius:14px;
+               font-size:14px;line-height:1.4;position:relative;
+               background:var(--card);border:1px solid var(--line);
+               box-shadow:0 1px 2px rgba(0,0,0,.06);word-wrap:break-word}
+    .tg-row.own .tg-bubble{background:var(--softblue);border-color:var(--blue)}
+    .tg-bubble .author{font-weight:700;font-size:12px;color:var(--blue);
+                       margin-bottom:2px}
+    .tg-bubble .text{white-space:pre-wrap}
+    .tg-bubble .time{font-size:10px;color:var(--muted);margin-top:4px;
+                     text-align:right}
+    .tg-bubble img{max-width:100%;border-radius:8px;margin-top:6px;display:block}
+
+    .tg-input{padding:12px;border-top:1px solid var(--line);
+              display:flex;gap:8px;align-items:flex-end}
+    .tg-input textarea{flex:1;resize:none;min-height:44px;max-height:140px;
+                       padding:10px 12px;border-radius:12px;font-size:14px;
+                       font-family:inherit;line-height:1.4}
+    .tg-input button{flex:none;width:44px;height:44px;padding:0;border-radius:999px;
+                     display:flex;align-items:center;justify-content:center;font-size:18px}
+
+    .tg-empty{display:flex;flex-direction:column;align-items:center;
+              justify-content:center;height:100%;color:var(--muted);gap:8px}
+    .tg-empty .big{font-size:48px;opacity:.35}
+
+    .tg-new{display:block;padding:10px 12px;border-bottom:1px solid var(--line);
+            background:var(--card)}
+    .tg-new a{font-size:13px;color:var(--blue);text-decoration:none;font-weight:700}
+    .tg-new a:hover{text-decoration:underline}
+
+    .tg-ava.task{background:linear-gradient(135deg,var(--orange),var(--red))}
+</style>
+
+<div class="tg-wrap {% if active_thread %}has-thread{% endif %}" id="tg-wrap">
+
+    {# ══ Список чатов ══ #}
+    <aside class="tg-list">
+        <div class="tg-new">
+            <a href="{% url 'dialogs' %}?new=1">✚ Новый диалог</a>
+        </div>
+        <div class="tg-search">
+            <form method="get" action="{% url 'dialogs' %}" style="margin:0">
+                {% if active_thread %}<input type="hidden" name="t" value="{{ active_thread.pk }}">{% endif %}
+                <input name="q" value="{{ q }}" placeholder="Поиск чатов и людей…"
+                       autocomplete="off">
+            </form>
+        </div>
+
+        <div class="tg-scroll">
+            {% if q or request.GET.new %}
+            {# показываем людей для нового диалога #}
+            {% for dept_name, users in by_dept.items %}
+            <div style="padding:8px 12px 4px;color:var(--muted);font-size:11px;
+                      text-transform:uppercase;letter-spacing:.5px;font-weight:700">
+                {{ dept_name }}
+            </div>
+            {% for u in users %}
+            <a class="tg-item" href="{% url 'start_direct_user' u.pk %}">
+                <div class="tg-ava {% if item.thread.task_id %}task{% endif %}">
+                    {% if item.thread.task_id %}📋{% else %}{{ item.title|slice:':1' }}{% endif %}
+                </div>
+                <div class="tg-mid">
+                    <div class="tg-name">{{ u.full_name }}</div>
+                    <div class="tg-prev">{{ u.email }}</div>
+                </div>
+            </a>
+            {% endfor %}
+            {% empty %}
+            <div style="padding:24px;color:var(--muted);text-align:center">
+                Никого не нашли.
+            </div>
+            {% endfor %}
+            {% else %}
+            {# обычный список чатов #}
+            {% for item in threads %}
+            <a class="tg-item {% if active_thread and item.thread.pk == active_thread.pk %}on{% endif %}"
+               href="{% url 'dialogs' %}?t={{ item.thread.pk }}">
+                <div class="tg-ava {% if item.thread.task_id %}task{% endif %}">
+                    {% if item.thread.task_id %}📋{% else %}{{ item.title|slice:':1' }}{% endif %}
+                </div>
+                <div class="tg-mid">
+                    <div class="tg-name">{{ item.title }}</div>
+                    {% if item.last %}
+                    <div class="tg-prev">
+                        {% if not item.last %}—{% else %}
+                        <b>{{ item.last.author.full_name|slice:':12' }}:</b>
+                        {{ item.last.text|truncatechars:40 }}
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="tg-prev">Сообщений нет</div>
+                    {% endif %}
+                </div>
+                <div class="tg-right">
+                    {% if item.last %}
+                    <div class="tg-time">{{ item.last.created_at|date:'H:i' }}</div>
+                    {% endif %}
+                    {% if item.unread %}
+                    <span class="tg-unread">{{ item.unread }}</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% empty %}
+            <div style="padding:24px;color:var(--muted);text-align:center;font-size:13px">
+                У вас ещё нет чатов.<br>
+                <a href="{% url 'dialogs' %}?new=1" style="color:var(--blue)">Начать первый →</a>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </aside>
+
+    {# ══ Открытый чат ══ #}
+    <section class="tg-chat">
+        {% if active_thread %}
+        <div class="tg-head">
+            <a class="tg-back" href="{% url 'dialogs' %}" title="К списку чатов">←</a>
+            <div style="min-width:0;flex:1">
+                <h3>{{ active_thread.display_title|default:active_thread.title }}</h3>
+                <div class="sub">
+                    {% if active_thread.task %}
+                    По задаче: <a href="{% url 'task_detail' active_thread.task.pk %}">
+                    {{ active_thread.task.title }}</a>
+                    {% else %}
+                    {{ active_thread.participants.count }} участник(ов)
+                    {% endif %}
+                </div>
+            </div>
+            {% if active_thread.task %}
+            <a class="pill" href="{% url 'task_detail' active_thread.task.pk %}">К задаче →</a>
+            {% endif %}
+        </div>
+
+        <div class="tg-body" id="tg-body" data-thread="{{ active_thread.pk }}"
+             data-last-id="{{ active_last_id }}">
+            {% for it in active_items %}
+            {% if it.sep %}
+            <div class="tg-sep">{{ it.sep|date:'d.m.Y' }}</div>
+            {% else %}
+            <div class="tg-row {% if it.own %}own{% endif %}" data-msg-id="{{ it.msg.pk }}">
+                <div class="tg-bubble">
+                    {% if not it.own %}
+                    <div class="author">{{ it.msg.author.full_name }}</div>
+                    {% endif %}
+                    <div class="text">{{ it.msg.text }}</div>
+                    {% for a in it.msg.attachments.all %}
+                    {% if a.image %}
+                    <a href="{{ a.file.url }}" target="_blank">
+                        <img src="{{ a.file.url }}" alt="{{ a.name }}">
+                    </a>
+                    {% else %}
+                    <a href="{{ a.file.url }}" target="_blank" style="font-size:12px">
+                        📄 {{ a.name }}
+                    </a>
+                    {% endif %}
+                    {% endfor %}
+                    <div class="time">{{ it.msg.created_at|date:'H:i' }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% empty %}
+            <div class="tg-empty" style="height:auto;padding:40px 0">
+                <span>Сообщений нет — напишите первым.</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <form class="tg-input" id="tg-form" method="post"
+              action="{% url 'thread_send' active_thread.pk %}">
+            {% csrf_token %}
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+                <div id="attach-box" class="attach-zone" style="min-height:0;padding:4px 8px;
+               border-style:none;min-height:0"></div>
+                <input type="hidden" name="attach_ids" id="attach_ids" value="">
+                <textarea name="text" id="tg-text" rows="1" placeholder="Сообщение…"></textarea>
+            </div>
+            <label style="cursor:pointer;flex:none;width:44px;height:44px;border-radius:999px;
+                      display:flex;align-items:center;justify-content:center;
+                      background:var(--soft);color:var(--muted);font-size:18px"
+                   title="Прикрепить файл">
+                📎
+                <input type="file" id="attach-input" multiple style="display:none"
+                       accept=".png,.jpg,.jpeg,.gif,.webp,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+            </label>
+            <button type="submit" class="btn blue" title="Отправить (Enter)">➤</button>
+        </form>
+        {% else %}
+        <div class="tg-empty">
+            <div class="big">💬</div>
+            <div>Выберите чат слева</div>
+            <div style="font-size:12px">или начните новый — «✚ Новый диалог»</div>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+{% if active_thread %}
+<script>
+    (function(){
+      const body = document.getElementById('tg-body');
+      const form = document.getElementById('tg-form');
+      const textarea = document.getElementById('tg-text');
+      const threadId = body.dataset.thread;
+      let lastId = parseInt(body.dataset.lastId || '0', 10);
+      let lastDay = new Date().toISOString().slice(0,10);
+
+      function csrf(){
+        const m = document.cookie.match('(^|; )csrftoken=([^;]*)');
+        return m ? decodeURIComponent(m[2]) : '';
+      }
+
+      function scrollBottom(){ body.scrollTop = body.scrollHeight; }
+      scrollBottom();
+
+      function fmtDate(iso){ /* YYYY-MM-DD → DD.MM.YYYY */
+        const [y,m,d] = iso.split('-'); return d+'.'+m+'.'+y;
+      }
+
+      function append(m){
+        // day-separator
+        const today = new Date();
+        const dayKey = new Date().toISOString().slice(0,10);
+        if (lastDay !== dayKey){
+          const sep = document.createElement('div');
+          sep.className = 'tg-sep';
+          sep.textContent = fmtDate(dayKey);
+          body.appendChild(sep);
+          lastDay = dayKey;
+        }
+        const row = document.createElement('div');
+        row.className = 'tg-row ' + (m.own ? 'own' : '');
+        row.dataset.msgId = m.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'tg-bubble';
+        let html = '';
+        if (!m.own) html += '<div class="author">' + m.author + '</div>';
+        html += '<div class="text">' + m.text.replace(/[&<>]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])) + '</div>';
+        html += '<div class="time">' + m.ts.split(' ')[1] + '</div>';
+        bubble.innerHTML = html;
+        row.appendChild(bubble);
+        body.appendChild(row);
+      }
+
+      // Send via fetch
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        const text = textarea.value.trim();
+        if (!text) return;
+        const fd = new FormData();
+        fd.append('text', text);
+        fd.append('attach_ids', document.getElementById('attach_ids').value);
+        fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        try{
+          const r = await fetch(form.action, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: fd,
+          });
+          if (!r.ok) return;
+          const m = await r.json();
+          append(m);
+          lastId = m.id;
+          textarea.value = '';
+          textarea.style.height = 'auto';
+          scrollBottom();
+          // Очистить вложения
+          document.getElementById('attach_ids').value = '';
+          document.getElementById('attach-box').innerHTML = '';
+        }catch(e){ console.error(e); }
+      });
+
+      // Enter — отправка, Shift+Enter — новая строка
+      textarea.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' && !e.shiftKey){
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      // Автовысота
+      textarea.addEventListener('input', function(){
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+      });
+
+      // Polling новых сообщений
+      setInterval(async function(){
+        try{
+          const r = await fetch('/comms/thread/' + threadId + '/poll/?since=' + lastId,
+                                {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+          if (!r.ok) return;
+          const d = await r.json();
+          if (d.messages && d.messages.length){
+            d.messages.forEach(function(m){
+              if (m.id > lastId){
+                append({id: m.id, author: m.author, text: m.text, own: m.own, ts: m.ts});
+                lastId = m.id;
+              }
+            });
+            scrollBottom();
+          }
+        }catch(e){}
+      }, 3000);
+    })();
+</script>
+{% endif %}
+{% endblock %}

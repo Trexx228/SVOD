@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* Брендированная тёмная тема через официальные CSS-переменные Django.
+       Не переопределяем размеры элементов — вёрстка не сдвигается. */
+    html[data-theme="dark"], html[data-theme="auto"] {
+      color-scheme: dark;
+      --primary: #58a6ff;
+      --secondary: #6e7681;
+      --accent: #3fb950;
+      --body-bg: #0f1218;
+      --body-quiet-color: #9aa3b2;
+      --body-fg: #e6e9ee;
+      --hairline-color: #2c3444;
+      --border-color: #2c3444;
+      --header-bg: #0a0d12;
+      --header-color: #e6e9ee;
+      --header-link-color: #e6e9ee;
+      --breadcrumbs-bg: #1a1f28;
+      --breadcrumbs-fg: #9aa3b2;
+      --breadcrumbs-link-fg: #58a6ff;
+      --link-fg: #58a6ff;
+      --link-hover-color: #8ec5ff;
+      --link-selected-fg: #3fb950;
+      --darkened-bg: #1a1f28;
+      --selected-bg: #232935;
+      --selected-row: rgba(88,166,255,.06);
+      --button-bg: #58a6ff;
+      --button-fg: #ffffff;
+      --button-hover-bg: #2563eb;
+      --default-button-bg: #3fb950;
+      --default-button-hover-bg: #16a34a;
+      --close-button-bg: #6e7681;
+      --delete-button-bg: #f85149;
+      --delete-button-hover-bg: #dc2626;
+      --error-fg: #f85149;
+      --message-success-bg: rgba(63,185,80,.15);
+      --message-warning-bg: rgba(210,153,34,.15);
+      --message-error-bg: rgba(248,81,73,.15);
+    }
+
+    .module, #changelist-filter, .submit-row, #recent-actions-module {
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #branding h1 { font-weight: 800; letter-spacing: .3px; }
+    #branding h1 a { text-decoration: none; }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(88,166,255,.35);
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% with active=request.resolver_match.url_name %}
+<style>
+    .set-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;
+              align-items:center;position:relative}
+    .set-tabs .pill{font-size:13px}
+    .set-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+
+    .tab-group{position:relative;display:inline-block}
+    .tab-group > summary{
+        list-style:none;cursor:pointer;
+        padding:6px 14px;border-radius:999px;border:1px solid var(--input);
+        color:var(--muted);font-weight:600;font-size:13px;background:var(--card);
+        display:inline-flex;align-items:center;gap:6px;
+        transition:background .15s,color .15s,border-color .15s;
+    }
+    .tab-group > summary::-webkit-details-marker{display:none}
+    .tab-group > summary:hover{background:var(--softblue);color:var(--blue)}
+    .tab-group[open] > summary{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+    .tab-group.active > summary{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+    .tab-group .caret{font-size:10px;opacity:.6}
+
+    .tab-group .tab-menu{
+        display:none;position:absolute;top:calc(100% + 4px);left:0;
+        z-index:60;min-width:190px;padding:6px;
+        background:var(--card);border:1px solid var(--line);border-radius:12px;
+        box-shadow:0 12px 32px rgba(0,0,0,.35);
+    }
+    .tab-group[open] .tab-menu{display:block}
+    .tab-group .tab-menu a{
+        display:flex;align-items:center;gap:8px;
+        padding:8px 12px;border-radius:8px;
+        color:var(--ink);text-decoration:none;font-size:13px;font-weight:500;
+        white-space:nowrap;transition:background .12s;
+    }
+    .tab-group .tab-menu a:hover{background:var(--soft)}
+    .tab-group .tab-menu a.on{background:var(--softblue);color:var(--blue);font-weight:700}
+    .tab-group .tab-menu a .nbadge{position:static;margin-left:auto;
+                                    background:var(--red);color:#fff;border-radius:999px;
+                                    padding:0 6px;font-size:11px;line-height:18px}
+</style>
+
+<nav class="set-tabs">
+
+    {# ─── Обзор ─── #}
+    <a class="pill {% if active == 'settings_home' %}on{% endif %}"
+       href="{% url 'settings_home' %}">Обзор</a>
+
+    {# ─── Персонал ─── #}
+    <details class="tab-group {% if active in 'settings_users settings_user_new settings_user_edit settings_user_detail settings_roles settings_role_new settings_role_edit settings_role_reassign settings_departments settings_department_new settings_department_edit' %}active{% endif %}">
+        <summary>Персонал <span class="caret">▾</span></summary>
+        <div class="tab-menu">
+            <a class="{% if active == 'settings_users' or active == 'settings_user_new' or active == 'settings_user_edit' or active == 'settings_user_detail' %}on{% endif %}"
+               href="{% url 'settings_users' %}">👥 Пользователи</a>
+            <a class="{% if active == 'settings_roles' or active == 'settings_role_new' or active == 'settings_role_edit' or active == 'settings_role_reassign' %}on{% endif %}"
+               href="{% url 'settings_roles' %}">🎭 Роли</a>
+            <a class="{% if active == 'settings_departments' or active == 'settings_department_new' or active == 'settings_department_edit' %}on{% endif %}"
+               href="{% url 'settings_departments' %}">🏢 Подразделения</a>
+            <a class="{% if active == 'settings_onboarding_stats' %}on{% endif %}"
+               href="{% url 'settings_onboarding_stats' %}">🎓 Обучение</a>
+        </div>
+    </details>
+
+    {# ─── Справочники ─── #}
+    <details class="tab-group {% if active in 'settings_task_types settings_task_type_new settings_task_type_edit settings_norms settings_norm_new settings_norm_edit' %}active{% endif %}">
+        <summary>Справочники <span class="caret">▾</span></summary>
+        <div class="tab-menu">
+            <a class="{% if active == 'settings_task_types' or active == 'settings_task_type_new' or active == 'settings_task_type_edit' %}on{% endif %}"
+               href="{% url 'settings_task_types' %}">📋 Типовые задачи</a>
+            <a class="{% if active == 'settings_norms' or active == 'settings_norm_new' or active == 'settings_norm_edit' %}on{% endif %}"
+               href="{% url 'settings_norms' %}">⏱ Нормы часов</a>
+        </div>
+    </details>
+
+    {# ─── Безопасность и связь ─── #}
+    <details class="tab-group {% if active in 'settings_audit settings_logins settings_alerts settings_alert_settings settings_tickets settings_broadcast' %}active{% endif %}">
+        <summary>Безопасность <span class="caret">▾</span></summary>
+        <div class="tab-menu">
+            <a class="{% if active == 'settings_audit' %}on{% endif %}"
+               href="{% url 'settings_audit' %}">📜 Аудит</a>
+            <a class="{% if active == 'settings_logins' %}on{% endif %}"
+               href="{% url 'settings_logins' %}">🔑 Входы</a>
+            <a class="{% if active == 'settings_alerts' or active == 'settings_alert_settings' %}on{% endif %}"
+               href="{% url 'settings_alerts' %}">
+                🔔 Уведомления
+                {% if unseen_alerts_count %}<span class="nbadge">{{ unseen_alerts_count }}</span>{% endif %}
+            </a>
+            <a class="{% if active == 'settings_tickets' %}on{% endif %}"
+               href="{% url 'settings_tickets' %}">
+                🛟 Поддержка
+                {% if open_tickets_count %}<span class="nbadge">{{ open_tickets_count }}</span>{% endif %}
+            </a>
+            <a class="{% if active == 'settings_broadcast' %}on{% endif %}"
+               href="{% url 'settings_broadcast' %}">📢 Рассылка</a>
+        </div>
+    </details>
+
+    {# ─── Система ─── #}
+    <details class="tab-group {% if active in 'settings_maintenance settings_integrity settings_backups settings_health settings_system settings_problems' %}active{% endif %}">
+        <summary>Система <span class="caret">▾</span></summary>
+        <div class="tab-menu">
+            <a class="{% if active == 'settings_maintenance' %}on{% endif %}"
+               href="{% url 'settings_maintenance' %}">🎛 Пульт</a>
+            <a class="{% if active == 'settings_problems' %}on{% endif %}"
+               href="{% url 'settings_problems' %}">🔎 Диагностика задач</a>
+            <a class="{% if active == 'settings_integrity' %}on{% endif %}"
+               href="{% url 'settings_integrity' %}">🔍 Целостность</a>
+            <a class="{% if active == 'settings_backups' %}on{% endif %}"
+               href="{% url 'settings_backups' %}">💾 Бэкапы</a>
+            <a class="{% if active == 'settings_health' %}on{% endif %}"
+               href="{% url 'settings_health' %}">❤ Здоровье</a>
+            <a class="{% if active == 'settings_system' %}on{% endif %}"
+               href="{% url 'settings_system' %}">ℹ О системе</a>
+        </div>
+    </details>
+
+    {# ─── Поиск — справа ─── #}
+    <a class="pill {% if active == 'settings_search' %}on{% endif %}"
+       style="margin-left:auto"
+       href="{% url 'settings_search' %}">🔍 Поиск</a>
+
+</nav>
+{% endwith %}

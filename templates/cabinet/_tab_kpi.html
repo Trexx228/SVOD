@@ -1,0 +1,107 @@
+<style>
+    .mk-filter{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;
+               align-items:end;margin-bottom:14px;max-width:640px}
+    .mk-filter label{margin:0 0 4px}
+    .mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+    .mk-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+    .mk-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .mk-stat .v{font-size:24px;font-weight:800}
+    .mk-stat .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .mk-stat.ok .v{color:var(--green)}
+    .mk-stat.warn .v{color:var(--orange)}
+    .mk-stat.danger .v{color:var(--red)}
+    .mk-stat.info .v{color:var(--blue)}
+
+    .mk-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .mk-tbl th,.mk-tbl td{padding:6px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .mk-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .mk-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Мой KPI · {{ date_from }} — {{ date_to }}</h3>
+        <a class="btn gray"
+           href="{% url 'me_kpi_export' %}?date_from={{ date_from }}&date_to={{ date_to }}">Экспорт CSV</a>
+    </div>
+
+    <form method="get" class="mk-filter">
+        <input type="hidden" name="tab" value="kpi">
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="?tab=kpi">Сброс</a>
+        </div>
+    </form>
+
+    <div class="mk-grid">
+        <div class="mk-stat info">
+            <div class="l">Задач готово</div>
+            <div class="v">{{ summary.tasks_done }}</div>
+            <div class="h">в срок: {{ summary.on_time }} · просроч.: {{ summary.overdue }}</div>
+        </div>
+        <div class="mk-stat {% if summary.on_time_pct >= 80 %}ok{% elif summary.on_time_pct >= 50 %}warn{% else %}danger{% endif %}">
+            <div class="l">В срок</div>
+            <div class="v">{{ summary.on_time_pct }}%</div>
+        </div>
+        <div class="mk-stat">
+            <div class="l">План, ч</div>
+            <div class="v">{{ summary.plan_hours|floatformat:1 }}</div>
+        </div>
+        <div class="mk-stat">
+            <div class="l">Факт, ч</div>
+            <div class="v">{{ summary.fact_hours|floatformat:1 }}</div>
+        </div>
+        <div class="mk-stat {% if summary.delta > 0 %}warn{% else %}ok{% endif %}">
+            <div class="l">Δ факт−план</div>
+            <div class="v">{% if summary.delta > 0 %}+{% endif %}{{ summary.delta|floatformat:1 }}</div>
+            <div class="h">{% if summary.delta > 0 %}переработка{% else %}сэкономлено{% endif %}</div>
+        </div>
+        <div class="mk-stat {% if summary.efficiency >= 100 %}ok{% elif summary.efficiency >= 80 %}info{% else %}warn{% endif %}">
+            <div class="l">КПД</div>
+            <div class="v">{{ summary.efficiency }}%</div>
+        </div>
+        <div class="mk-stat">
+            <div class="l">Сессий, ч</div>
+            <div class="v">{{ summary.session_hours|floatformat:1 }}</div>
+        </div>
+    </div>
+</div>
+
+{% if daily_rows %}
+<div class="card">
+    <h3 style="margin:0 0 10px">По дням</h3>
+    <table class="mk-tbl">
+        <thead>
+        <tr><th>Дата</th><th class="num">Задач</th>
+            <th class="num">План, ч</th><th class="num">Факт, ч</th>
+            <th class="num">Δ, ч</th></tr>
+        </thead>
+        <tbody>
+        {% for row in daily_rows %}
+        <tr>
+            <td>{{ row.date|date:'d.m.Y' }}</td>
+            <td class="num">{{ row.count }}</td>
+            <td class="num">{{ row.plan|floatformat:2 }}</td>
+            <td class="num">{{ row.fact|floatformat:2 }}</td>
+            <td class="num">
+                {% if row.fact > row.plan %}<span style="color:var(--red);font-weight:700">+{{ row.fact|add:"-row.plan"|floatformat:2 }}</span>
+                {% elif row.fact < row.plan %}<span style="color:var(--green);font-weight:700">{{ row.fact|add:"-row.plan"|floatformat:2 }}</span>
+                {% else %}0,00{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}

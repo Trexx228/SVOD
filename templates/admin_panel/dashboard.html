@@ -1,0 +1,390 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+    <h2 style="margin:0">Настройки портала</h2>
+    <div style="display:flex;gap:8px;flex:1 1 460px;flex-wrap:wrap;align-items:center;justify-content:flex-end">
+        <form method="get" action="{% url 'settings_search' %}" style="flex:1 1 260px;min-width:200px;margin:0">
+            <input name="q" placeholder="Быстрый поиск: ФИО, email, роль, задача…">
+        </form>
+    </div>
+</div>
+
+{% if user.is_boss or user.can_plant %}
+<div style="background:color-mix(in srgb,var(--blue) 6%,var(--soft));
+            border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line));
+            border-radius:10px;padding:8px 14px;margin-bottom:14px;
+            display:flex;justify-content:space-between;align-items:center;
+            gap:12px;flex-wrap:wrap;font-size:13px">
+    <span style="color:var(--muted)">
+        Операционные отчёты — в кабинете. Здесь только управление.
+    </span>
+    <a class="pill" href="{% url 'manager_cabinet' %}">Кабинет руководителя →</a>
+</div>
+{% endif %}
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+    .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;
+          box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
+    .stat .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+    .stat .value{font-size:28px;font-weight:800;letter-spacing:-.02em}
+    .stat .hint{color:var(--muted);font-size:12px}
+    .stat.link{cursor:pointer;text-decoration:none;color:inherit;transition:transform .12s}
+    .stat.link:hover{transform:translateY(-2px)}
+    .stat.warn{border-color:color-mix(in srgb,var(--orange) 60%,var(--line))}
+    .stat.warn .value{color:var(--orange)}
+    .stat.danger{border-color:color-mix(in srgb,var(--red) 60%,var(--line))}
+    .stat.danger .value{color:var(--red)}
+    .stat.ok .value{color:var(--green)}
+    .stat.info .value{color:var(--blue)}
+
+    .dash-cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+    @media(max-width:900px){.dash-cols{grid-template-columns:1fr}}
+
+    .recent-table{width:100%;border-collapse:collapse}
+    .recent-table th,.recent-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                                       text-align:left;vertical-align:top;font-size:13px}
+    .recent-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                     letter-spacing:.4px;font-weight:700}
+    .recent-table tbody tr:hover{background:var(--soft)}
+    .empty-note{color:var(--muted);text-align:center;padding:20px 0;font-size:13px}
+
+    .alert-card{border-radius:12px;padding:10px 14px;margin-bottom:8px;
+                border:1px solid var(--line);background:var(--soft)}
+    .alert-card.warn{border-color:color-mix(in srgb,var(--orange) 50%,var(--line))}
+    .alert-card.danger{border-color:color-mix(in srgb,var(--red) 50%,var(--line))}
+    .alert-card .t{font-weight:800;font-size:13px;margin-bottom:2px}
+    .alert-card .h{color:var(--muted);font-size:12px}
+    .alert-card .h a{color:var(--blue)}
+    .due-over{color:var(--red);font-weight:700}
+
+    .ue-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+    .ue-stat .label{color:var(--muted);font-size:11px;text-transform:uppercase;
+                    letter-spacing:.4px;font-weight:700}
+    .ue-stat .value{font-size:22px;font-weight:800;letter-spacing:-.01em}
+    .ue-stat .hint{color:var(--muted);font-size:11px}
+    .ue-stat.warn .value{color:var(--orange)}
+    .ue-stat.ok .value{color:var(--green)}
+    .ue-stat.info .value{color:var(--blue)}
+</style>
+
+<div class="dash-grid">
+    <a class="stat link info" href="{% url 'settings_users' %}">
+        <span class="label">Пользователи</span>
+        <span class="value">{{ users_total }}</span>
+        <span class="hint">активных: {{ users_active }} · отключённых: {{ users_inactive }}</span>
+    </a>
+
+    <a class="stat link {% if users_admins <= 1 %}danger{% else %}ok{% endif %}"
+       href="{% url 'settings_users' %}">
+        <span class="label">Администраторы</span>
+        <span class="value">{{ users_admins }}</span>
+        <span class="hint">{% if users_admins <= 1 %}риск блокировки{% else %}ок{% endif %}</span>
+    </a>
+
+    <div class="stat {% if users_no_role %}warn{% endif %}">
+        <span class="label">Без роли</span>
+        <span class="value">{{ users_no_role }}</span>
+        <span class="hint">активных пользователей</span>
+    </div>
+
+    <div class="stat {% if users_no_dept %}warn{% endif %}">
+        <span class="label">Без подразделения</span>
+        <span class="value">{{ users_no_dept }}</span>
+        <span class="hint">активных пользователей</span>
+    </div>
+
+    <a class="stat link" href="{% url 'settings_roles' %}">
+        <span class="label">Роли</span>
+        <span class="value">{{ roles_total }}</span>
+    </a>
+
+    <a class="stat link {% if users_dismissed_month %}warn{% endif %}"
+       href="{% url 'settings_users' %}?status=dismissed">
+        <span class="label">Уволены за месяц</span>
+        <span class="value">{{ users_dismissed_month }}</span>
+        <span class="hint">{% if users_dismissed_month %}требуют переназначения задач{% else %}нет{% endif %}</span>
+    </a>
+
+    <a class="stat link" href="{% url 'settings_departments' %}">
+        <span class="label">Подразделения</span>
+        <span class="value">{{ departments_total }}</span>
+    </a>
+
+    <a class="stat link" href="{% url 'settings_task_types' %}">
+        <span class="label">Типовые</span>
+        <span class="value">{{ task_types_total }}</span>
+        <span class="hint">активных: {{ task_types_active }}</span>
+    </a>
+
+    <a class="stat link" href="{% url 'settings_norms' %}">
+        <span class="label">Нормы часов</span>
+        <span class="value">{{ norms_total }}</span>
+        <span class="hint">{% if current_norm %}текущая: {{ current_norm.hours_per_day }} ч/день{% else %}нет записи{% endif %}</span>
+    </a>
+
+    <a class="stat link {% if tasks_overdue %}warn{% endif %}" href="{% url 'settings_tasks_page' %}?status=in_progress">
+        <span class="label">Задачи в работе</span>
+        <span class="value">{{ tasks_in_progress }}</span>
+        <span class="hint">просрочено: {{ tasks_overdue }}</span>
+    </a>
+
+    <a class="stat link {% if failed_logins_24h %}warn{% endif %}" href="{% url 'settings_logins' %}?result=failed">
+        <span class="label">Отказы входа 24ч</span>
+        <span class="value">{{ failed_logins_24h }}</span>
+        <span class="hint">неудачных попыток</span>
+    </a>
+
+    <a class="stat link {% if open_tickets %}warn{% endif %}" href="{% url 'settings_tickets' %}?state=open">
+        <span class="label">Обращения</span>
+        <span class="value">{{ open_tickets }}</span>
+        <span class="hint">{% if open_tickets %}требуют ответа{% else %}нет открытых{% endif %}</span>
+    </a>
+    <a class="stat link {% if problem_count %}warn{% endif %}" href="{% url 'settings_problems' %}">
+        <span class="label">Диагностика</span>
+        <span class="value">{{ problem_count }}</span>
+        <span class="hint">{% if problem_count %}задач в аномалии{% else %}нет проблем{% endif %}</span>
+    </a>
+</div>
+
+{% if not onboarding_progress.all_done %}
+<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Настройка портала · {{ onboarding_progress.done }} / {{ onboarding_progress.total }}</h3>
+        <div style="flex:0 1 320px;display:flex;align-items:center;gap:10px">
+            <div style="flex:1 1 auto;height:8px;border-radius:999px;
+                        background:color-mix(in srgb,var(--line) 70%,transparent);overflow:hidden">
+                <div style="height:100%;width:{{ onboarding_progress.percent }}%;
+                            background:linear-gradient(90deg,var(--blue),var(--green));transition:width .3s"></div>
+            </div>
+            <span style="font-weight:700;font-size:13px;color:var(--muted)">{{ onboarding_progress.percent }}%</span>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">
+        {% for c in onboarding_checks %}
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;
+                    border-radius:12px;border:1px solid var(--line);
+                    background:{% if c.done %}color-mix(in srgb,var(--green) 6%,var(--soft)){% else %}var(--soft){% endif %}">
+            <div style="flex:none;width:22px;height:22px;border-radius:999px;
+                        display:flex;align-items:center;justify-content:center;font-weight:800;
+                        background:{% if c.done %}var(--green){% else %}color-mix(in srgb,var(--muted) 20%,transparent){% endif %};
+                        color:{% if c.done %}#fff{% else %}var(--muted){% endif %};
+                        font-size:13px">
+                {% if c.done %}✓{% else %}—{% endif %}
+            </div>
+            <div style="flex:1 1 auto;min-width:0">
+                <div style="font-weight:700;font-size:13px;margin-bottom:2px">
+                    {{ c.title }}
+                    {% if c.optional %}<span class="badge" style="margin-left:6px">опц.</span>{% endif %}
+                </div>
+                <div style="color:var(--muted);font-size:12px;line-height:1.4">{{ c.hint }}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            margin-top:6px;gap:8px">
+                    <span style="color:var(--muted);font-size:11px">{{ c.current }}</span>
+                    {% if not c.done %}
+                    <a class="pill" style="font-size:12px;padding:3px 10px"
+                       href="{{ c.url }}">{{ c.url_text }} →</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="margin:0">Сегодня в цифрах</h3>
+        <span class="pill">{{ today|date:'d.m.Y' }}</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+        <div class="ue-stat ok">
+            <div class="label">Входов</div>
+            <div class="value">{{ today_stats.logins_ok }}</div>
+            <div class="hint">{% if today_stats.logins_fail %}отказов: {{ today_stats.logins_fail }}{% else %}без отказов{% endif %}</div>
+        </div>
+        <div class="ue-stat info">
+            <div class="label">Новых задач</div>
+            <div class="value">{{ today_stats.tasks_created }}</div>
+        </div>
+        <div class="ue-stat ok">
+            <div class="label">Завершено</div>
+            <div class="value">{{ today_stats.tasks_done }}</div>
+            <div class="hint">{% if today_stats.tasks_cancelled %}отмен: {{ today_stats.tasks_cancelled }}{% endif %}</div>
+        </div>
+        <div class="ue-stat info">
+            <div class="label">Сеансов работы</div>
+            <div class="value">{{ today_stats.sessions_count }}</div>
+            <div class="hint">{{ today_stats.sessions_hours|floatformat:1 }} ч</div>
+        </div>
+        <div class="ue-stat">
+            <div class="label">Сеансов в цехе</div>
+            <div class="value">{{ today_stats.shop_sessions_count }}</div>
+            <div class="hint">{{ today_stats.shop_sessions_hours|floatformat:1 }} ч</div>
+        </div>
+        <div class="ue-stat {% if today_stats.active_sessions_now %}info{% endif %}">
+            <div class="label">Активных сейчас</div>
+            <div class="value">{{ today_stats.active_sessions_now }}</div>
+            <div class="hint">задач в работе с таймером</div>
+        </div>
+    </div>
+</div>
+
+<div class="dash-cols">
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="margin:0">Последние действия</h3>
+            <a class="pill" href="{% url 'settings_audit' %}">Весь журнал →</a>
+        </div>
+
+        <table class="recent-table">
+            <thead>
+            <tr>
+                <th>Когда</th>
+                <th>Кто</th>
+                <th>Что</th>
+                <th>Объект</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in recent_audit %}
+            <tr>
+                <td style="white-space:nowrap">{{ row.created_at|date:'d.m H:i' }}</td>
+                <td>{{ row.actor.full_name|default:'—' }}</td>
+                <td><span class="badge">{{ row.get_action_display }}</span></td>
+                <td>
+                    <code style="font-size:11px">{{ row.target_model }}</code>
+                    <div style="color:var(--muted);font-size:12px">{{ row.target_repr|truncatechars:50 }}</div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="empty-note">Записей пока нет.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Требует внимания</h3>
+
+        {% if users_admins <= 1 %}
+        <div class="alert-card danger">
+            <div class="t">Один администратор</div>
+            <div class="h">Назначьте резервного админа — иначе потеряете доступ.</div>
+        </div>
+        {% endif %}
+
+        {% if tasks_overdue %}
+        <div class="alert-card warn">
+            <div class="t">Просрочено задач: {{ tasks_overdue }}</div>
+            <div class="h"><a href="{% url 'settings_tasks_page' %}">Показать список</a></div>
+        </div>
+        {% endif %}
+
+        {% if failed_logins_24h %}
+        <div class="alert-card warn">
+            <div class="t">Отказов входа за сутки: {{ failed_logins_24h }}</div>
+            <div class="h"><a href="{% url 'settings_logins' %}?result=failed">Смотреть логи</a></div>
+        </div>
+        {% endif %}
+
+        {% if users_no_role %}
+        <div class="alert-card warn">
+            <div class="t">Без роли: {{ users_no_role }}</div>
+            <div class="h"><a href="{% url 'settings_users' %}?role=">Показать</a></div>
+        </div>
+        {% endif %}
+
+        {% if users_no_dept %}
+        <div class="alert-card warn">
+            <div class="t">Без подразделения: {{ users_no_dept }}</div>
+            <div class="h"><a href="{% url 'settings_users' %}?dept=">Показать</a></div>
+        </div>
+        {% endif %}
+
+        {% if not current_norm %}
+        <div class="alert-card warn">
+            <div class="t">Нет нормы часов</div>
+            <div class="h"><a href="{% url 'settings_norm_new' %}">Добавить →</a></div>
+        </div>
+        {% endif %}
+
+        {% if users_admins > 1 and not tasks_overdue and not failed_logins_24h and not users_no_role and not users_no_dept and current_norm %}
+        <div class="empty-note">Всё чисто. Замечаний нет.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dash-cols" style="margin-top:14px">
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="margin:0">Топ просрочек</h3>
+            <a class="pill" href="{% url 'settings_tasks_page' %}">Все задачи →</a>
+        </div>
+
+        <table class="recent-table">
+            <thead>
+            <tr>
+                <th>Задача</th>
+                <th>Исполнитель</th>
+                <th>Срок</th>
+                <th>Дней</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for t in overdue_tasks %}
+            <tr>
+                <td>
+                    <a href="/tasks/task/{{ t.pk }}/" target="_blank">{{ t.title|truncatechars:50 }}</a>
+                    <div style="color:var(--muted);font-size:11px">
+                        #{{ t.pk }} · {{ t.get_status_display }}
+                    </div>
+                </td>
+                <td>{{ t.executor.full_name|default:'—' }}</td>
+                <td class="due-over">{{ t.due|date:'d.m.Y' }}</td>
+                <td>{{ t.due|timesince:today }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="empty-note">Просрочек нет.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="margin:0">Отказы входа · 7 дней</h3>
+            <a class="pill" href="{% url 'settings_logins' %}?result=failed">Все →</a>
+        </div>
+
+        {% if failed_logins_top %}
+        <table class="recent-table">
+            <thead>
+            <tr>
+                <th>Email / попытка</th>
+                <th>IP</th>
+                <th>Раз</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in failed_logins_top %}
+            <tr>
+                <td>{{ row.email }}</td>
+                <td style="color:var(--muted)">{{ row.ip }}</td>
+                <td><b>{{ row.count }}</b></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-note">Отказов за неделю нет.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

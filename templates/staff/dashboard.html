@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .grid{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+  @media(max-width:960px){.grid{grid-template-columns:1fr}}
+  .focus{text-align:center;padding:28px}
+  .timer{font-size:58px;font-weight:800;letter-spacing:2px;font-variant-numeric:tabular-nums;margin:10px 0}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--softblue);color:var(--blue)}
+  .muted{color:var(--muted);font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .tcard{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:8px}
+  .tcard .t-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+    margin-top:auto;
+  }
+  .tcard .t-actions form{display:contents;margin:0}
+  .tcard .t-actions .btn{
+    width:100%;
+    padding:10px 8px;
+    font-size:13px;
+    text-align:center;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    box-sizing:border-box;
+  }
+  .tcard .t-actions .btn:only-child{grid-column:1 / -1}
+
+  .pr{display:inline-block;padding:3px 10px;border-radius:999px;
+      font-size:11px;font-weight:800;letter-spacing:.3px;color:#fff}
+  .pr-urgent{background:#dc2626;animation:urgentPulse 1.2s infinite}
+  .pr-high  {background:#ea580c}
+  .pr-medium{background:#2563eb}
+  .pr-low   {background:#6b7280}
+  @keyframes urgentPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.75)}
+    50%    {box-shadow:0 0 0 10px rgba(220,38,38,0)}
+  }
+
+  .ring{position:relative;width:96px;height:96px;margin:0 auto}
+  .ring svg{transform:rotate(-90deg);width:96px;height:96px}
+  .ring .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px}
+  .bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),color-mix(in srgb,var(--green) 65%,#000))}
+  .medals{font-size:22px;letter-spacing:6px}
+  .chart{display:flex;align-items:flex-end;gap:6px;height:96px}
+  .chart .col{flex:1;background:linear-gradient(180deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#000));border-radius:6px 6px 0 0;min-height:4px}
+  .chartlbl{display:flex;gap:6px;margin-top:4px}
+  .chartlbl span{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+  .kudo{border-left:3px solid var(--green);padding:4px 8px;background:var(--soft);border-radius:0 10px 10px 0;margin-bottom:6px;font-size:13px}
+  .rowhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 12px}
+  .rowhead h2{margin:0}
+  .actions{margin:12px 0 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .side .card{padding:12px 14px;margin-bottom:10px}
+  .side h3{margin:0 0 6px;font-size:14px;font-weight:800}
+  .side h3 a{color:var(--ink);text-decoration:none}
+  .side h3 a:hover{color:var(--blue);text-decoration:underline}
+  .side p{margin:4px 0}
+  .side .muted{font-size:12px}
+</style>
+
+<div class="grid">
+  <div>
+    <div class="card focus">
+      {% if focus %}
+      {% if focus.priority == 'urgent' %}
+      <span class="pr pr-urgent">🔥 СРОЧНО</span>
+      {% elif focus.priority == 'high' %}
+      <span class="pr pr-high">Высокий</span>
+      {% elif focus.priority == 'medium' %}
+      <span class="pr pr-medium">Средний</span>
+      {% elif focus.priority == 'low' %}
+      <span class="pr pr-low">Низкий</span>
+      {% endif %}
+      <span class="badge">{{ focus.get_status_display }}</span>
+      {% if focus.status == 'pending_approval' %}
+      <span class="pr" style="background:color-mix(in srgb,var(--orange) 25%,transparent);color:var(--orange)">
+        ⏸ Ждёт согласования сдвига
+      </span>
+      {% endif %}
+      <h2 style="margin:10px 0 0">{{ focus.title }}</h2>
+      <div class="timer" data-timer data-total="{{ focus.total_hours }}"
+           data-start="{{ focus.session_started_at|date:'c' }}"
+           data-spent="{{ focus.spent_hours|floatformat:4 }}">{{ focus.spent_text }}</div>
+
+      <div data-remaining
+           data-plan="{{ focus.rolled_plan|default:0 }}"
+           style="margin:-4px 0 8px;font-size:13px;font-weight:700;color:var(--muted)"></div>
+
+      {% if focus_shop_open %}
+      <div style="margin:6px 0 0;color:var(--blue);font-weight:700;font-size:15px">
+        🏭 В цехе: <span data-shop-timer
+                        data-start="{{ focus_shop_open.started_at|date:'c' }}">—</span>
+      </div>
+      {% endif %}
+      <p class="muted" style="margin:6px 0 4px">
+        Срок: {{ focus.due|date:'d.m.Y'|default:'—' }} ·
+        План: {% if focus.rolled_plan %}{{ focus.rolled_plan|floatformat:2 }} ч{% else %}оценка{% endif %}
+      </p>
+      {% if focus.due %}
+      <div data-due-countdown
+           data-due="{{ focus.due|date:'Y-m-d' }}"
+           data-plan="{{ focus.rolled_plan|default:0 }}"
+           style="margin-bottom:10px"></div>
+      {% endif %}
+      <div class="actions">
+        {% if focus.status == 'pending_approval' %}
+        <div style="color:var(--orange);font-weight:700;padding:8px 0">
+          ⏸ Задача заблокирована до решения согласующих.
+          {% if user.is_boss %}
+          <a class="pill" href="{% url 'shift_requests_list' %}" style="margin-left:8px">
+            Перейти к заявкам →
+          </a>
+          {% endif %}
+        </div>
+
+        {% elif focus.status == 'in_progress' %}
+        <form method="post" action="{% url 'task_action' focus.pk 'pause' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn orange" type="submit">Пауза</button>
+        </form>
+        <form method="post" action="{% url 'task_action' focus.pk 'review' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn blue" type="submit">На проверку</button>
+        </form>
+        {% elif focus.status == 'paused' or focus.status == 'rework' %}
+        <form method="post" action="{% url 'task_action' focus.pk 'resume' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn green" type="submit">Продолжить</button>
+        </form>
+        {% elif focus.status == 'new' %}
+        <form method="post" action="{% url 'task_action' focus.pk 'start' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn green" type="submit">Начать</button>
+        </form>
+        {% endif %}
+
+        {% if focus.executor_id == user.id and focus.status != 'done' and focus.status != 'cancelled' and focus.status != 'pending_approval' %}
+        {% if focus.pk in shop_open_task_ids %}
+        <form method="post" action="{% url 'task_action' focus.pk 'shop_stop' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn orange" type="submit">Вернуться из цеха</button>
+        </form>
+        {% else %}
+        <form method="post" action="{% url 'task_action' focus.pk 'shop_start' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn blue" type="submit">Выход в цех</button>
+        </form>
+        {% endif %}
+        {% endif %}
+        <a class="btn gray" style="padding:8px 16px" href="{% url 'task_detail' focus.pk %}">Описание</a>
+        <a class="btn blue" style="padding:8px 16px" href="{% url 'task_chat' focus.pk %}">Чат</a>
+        {% if user.is_boss and focus.status != 'pending_approval' %}
+        <form method="post" action="{% url 'task_action' focus.pk 'close' %}" style="display:inline;margin:0">
+          {% csrf_token %}<button class="btn red" type="submit">Завершить</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <h2 style="margin:0">Открытых задач нет</h2>
+      <p class="muted">Хороший момент выдохнуть или попросить у руководителя новую задачу.</p>
+      {% endif %}
+    </div>
+
+    {% if my_chains %}
+    <div class="card" style="margin-top:18px">
+      <h3 style="margin:0 0 12px">🌿 Мои цепочки</h3>
+      {% for c in my_chains %}
+      <div style="border-bottom:1px solid var(--line);padding:10px 0;
+              {% if forloop.last %}border-bottom:0{% endif %}">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:10px;flex-wrap:wrap">
+          <b>{{ c.branch.name }}</b>
+          <span style="color:var(--muted);font-size:12px">
+        этап {{ c.current_index }} из {{ c.total }} · пройдено {{ c.done }}
+      </span>
+        </div>
+
+        <div class="bar" style="margin-top:6px;height:8px;border-radius:999px;
+                            background:var(--line);overflow:hidden">
+          <i style="display:block;height:100%;width:{{ c.pct }}%;
+                background:linear-gradient(90deg,var(--green),color-mix(in srgb,var(--green) 65%,#000))"></i>
+        </div>
+
+        <div style="margin-top:8px;font-size:13px">
+          Сейчас: <a href="{% url 'task_detail' c.current.pk %}">{{ c.current.title }}</a>
+          {% if c.current.status == 'in_progress' %}
+          <span class="badge" style="background:var(--softblue);color:var(--blue)">в работе</span>
+          {% elif c.current.status == 'paused' %}
+          <span class="badge" style="background:var(--soft);color:var(--muted)">пауза</span>
+          {% elif c.current.status == 'new' %}
+          <span class="badge">новая</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if my_review %}
+    <div class="card">
+      <h3>Ждут моей приёмки</h3>
+      <table>
+        <tr><th>Задача</th><th>Исполнитель</th><th>Факт</th><th>Решение</th></tr>
+        {% for t in my_review %}
+        <tr>
+          <td><a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a></td>
+          <td>{{ t.executor.full_name }}</td>
+          <td>{{ t.spent_text }}</td>
+          <td>
+            <form method="post" action="{% url 'task_action' t.pk 'accept' %}" style="display:inline;margin:0">
+              {% csrf_token %}<button class="btn green" type="submit">Принять</button>
+            </form>
+            <form method="post" action="{% url 'task_action' t.pk 'rework' %}" style="display:inline;margin:0">
+              {% csrf_token %}<button class="btn orange" type="submit">На доработку</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="rowhead">
+      <h2>Мои задачи</h2>
+      {% if onboarding_offer and onboarding_done_count < 2 %}
+      <div class="card" style="border-left:4px solid var(--blue);
+     background:color-mix(in srgb,var(--blue) 5%,var(--card))">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:14px;flex-wrap:wrap">
+          <div>
+            <b style="font-size:15px">🎓 Обучение СВОД</b>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px">
+              Пройдите маршрут из {{ onboarding_total }} туров — это 5–7 минут.
+              Прогресс: {{ onboarding_done_count }} / {{ onboarding_total }}.
+            </div>
+          </div>
+          <button type="button" class="btn blue" data-onb-start>Начать</button>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="cards">
+      {% for t in cards %}
+      <div class="tcard">
+        <div>
+          <a href="{% url 'task_detail' t.pk %}"><b>{{ t.title }}</b></a>
+          {% if t.parent %}
+          <div class="muted">в составе:
+            <a href="{% url 'task_detail' t.parent.pk %}">{{ t.parent.title }}</a>
+          </div>
+          {% endif %}
+        </div>
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          {% if t.priority == 'urgent' %}
+          <span class="pr pr-urgent">🔥 СРОЧНО</span>
+          {% elif t.priority == 'high' %}
+          <span class="pr pr-high">Высокий</span>
+          {% elif t.priority == 'medium' %}
+          <span class="pr pr-medium">Средний</span>
+          {% elif t.priority == 'low' %}
+          <span class="pr pr-low">Низкий</span>
+          {% else %}
+          <span class="pr pr-low">—</span>
+          {% endif %}
+          <span class="badge">{{ t.get_status_display }}</span>
+          {% if t.status == 'pending_approval' %}
+          <span class="pr" style="background:color-mix(in srgb,var(--orange) 25%,transparent);color:var(--orange)">
+            ⏸ Согласование
+          </span>
+          {% endif %}
+        </div>
+
+        <div class="muted">
+          Срок:
+          {% if t.due %}
+          <span style="font-weight:700;color:{% if t.due < today %}var(--red){% elif t.due == today %}var(--orange){% else %}var(--muted){% endif %}">
+            {{ t.due|date:'d.m.Y' }}
+          </span>
+          {% else %}—{% endif %}
+          · Затрачено: <b>{{ t.spent_text }}</b>
+          {% if t.due %}
+          <div data-due-countdown
+               data-due="{{ t.due|date:'Y-m-d' }}"
+               data-plan="{{ t.rolled_plan|default:0 }}"
+               style="margin-top:4px"></div>
+          {% endif %}
+          {% if t.shop_open %}
+          <div style="color:var(--blue);font-size:13px;font-weight:700">
+            🏭 В цехе: <span data-shop-timer data-start="{{ t.shop_open.started_at|date:'c' }}">—</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="t-actions">
+          {% if t.status == 'pending_approval' %}
+          <div style="color:var(--orange);font-weight:700;font-size:13px;padding:6px 0">
+            ⏸ Ждёт согласования
+          </div>
+
+          {% elif t.status == 'in_progress' %}
+          <form method="post" action="{% url 'task_action' t.pk 'pause' %}" style="display:inline;margin:0">
+            {% csrf_token %}<button class="btn orange" type="submit">Пауза</button>
+          </form>
+          {% elif t.status == 'paused' or t.status == 'rework' %}
+          <form method="post" action="{% url 'task_action' t.pk 'resume' %}" style="display:inline;margin:0">
+            {% csrf_token %}<button class="btn green" type="submit">Продолжить</button>
+          </form>
+          {% elif t.status == 'new' %}
+          <form method="post" action="{% url 'task_action' t.pk 'start' %}" style="display:inline;margin:0">
+            {% csrf_token %}<button class="btn green" type="submit">Начать</button>
+          </form>
+          {% endif %}
+
+          {% if t.executor_id == user.id and t.status != 'done' and t.status != 'cancelled' and t.status != 'pending_approval' %}
+          {% if t.pk in shop_open_task_ids %}
+          <form method="post" action="{% url 'task_action' t.pk 'shop_stop' %}" style="display:inline;margin:0">
+            {% csrf_token %}<button class="btn orange" type="submit">Вернуться из цеха</button>
+          </form>
+          {% else %}
+          <form method="post" action="{% url 'task_action' t.pk 'shop_start' %}" style="display:inline;margin:0">
+            {% csrf_token %}<button class="btn blue" type="submit">Выход в цех</button>
+          </form>
+          {% endif %}
+          {% endif %}
+
+          {% if user.is_boss and t.status != 'pending_approval' %}
+          <form method="post" action="{% url 'task_action' t.pk 'close' %}" style="display:inline;margin:0">
+            {% csrf_token %}<button class="btn red" type="submit">Завершить</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="muted">Других открытых задач нет.</p>
+      {% endfor %}
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h3>Мои часы за 14 дней</h3>
+      <div class="chart">
+        {% for d in days %}<div class="col" style="height:{{ d.pct }}%" title="{{ d.label }}: {{ d.hours }} ч"></div>{% endfor %}
+      </div>
+      <div class="chartlbl">
+        {% for d in days %}<span>{{ d.label }}</span>{% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">История закрытых задач</h3>
+        <a class="btn gray" href="{% url 'history' %}">Вся история</a>
+      </div>
+      <table>
+        <tr><th>Задача</th><th>Закрыта</th><th>План</th><th>Факт</th></tr>
+        {% for t in closed_recent %}
+        <tr>
+          <td><a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a></td>
+          <td>{{ t.finished_at|date:'d.m.Y H:i' }}</td>
+          <td>{{ t.plan_text }}</td>
+          <td>{{ t.spent_text }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">Закрытых задач пока нет.</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+
+  <aside class="side">
+    <div class="card" style="text-align:center">
+      <h3><a href="{% url 'motivation' %}#kpi">Мой KPI, месяц</a></h3>
+      <div class="ring">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="54" stroke="var(--line)" stroke-width="12" fill="none"/>
+          <circle cx="60" cy="60" r="54"
+                  stroke="{% if not kpi %}transparent{% elif kpi > 110 %}var(--orange){% elif kpi < 90 %}var(--red){% else %}var(--green){% endif %}"
+                  stroke-width="12" fill="none" stroke-linecap="round"
+                  stroke-dasharray="{{ ring_dash|default:0 }} 339.292"/>
+        </svg>
+        <div class="val">{% if kpi %}{% if kpi > 300 %}&gt;300{% else %}{{ kpi }}{% endif %}%{% else %}—{% endif %}</div>
+      </div>
+      <p class="muted" style="margin:6px 0 0">
+        {% if kpi %}
+        Здоровая зона 90–110%: без накруток и переработок
+        {% else %}
+        План {{ kpi_plan|floatformat:2 }} ч / факт {{ kpi_fact|floatformat:2 }} ч.
+        KPI включится при факте ≥ 1 ч времени сеансов.
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="card">
+      <h3><a href="{% url 'motivation' %}#level">Уровень</a></h3>
+      <p style="margin:0 0 4px"><b>{{ level.name }}</b></p>
+      <div class="bar"><i style="width:{{ level.progress|floatformat:0 }}%"></i></div>
+      <p class="muted" style="margin:4px 0 0">{{ level.label }}</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="{% url 'motivation' %}#streak">Ритм</a></h3>
+      {% if streak and streak.current_days %}
+      <p style="margin:0;font-size:16px">🔥 {{ streak.current_days }} дн. без просрочек</p>
+      <p class="muted" style="margin:2px 0 0">Рекорд: {{ streak.best_days }} дн.</p>
+      {% else %}
+      <p class="muted" style="margin:0">Закройте задачу в срок — и зажжётся огонёк ритма.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3><a href="{% url 'motivation' %}#achievements">Достижения</a></h3>
+      {% if achievements %}
+      <div class="medals">
+        {% for ua in achievements %}<span title="{{ ua.achievement.title }}: {{ ua.achievement.description }}">{{ ua.achievement.icon }}</span>{% endfor %}
+      </div>
+      {% else %}
+      <p class="muted" style="margin:0">Медали ждут своего часа: закрывайте задачи в срок.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3><a href="{% url 'motivation' %}#kudos">Благодарности</a></h3>
+      {% for k in kudos %}
+      <div class="kudo"><b>{{ k.from_user.full_name }}:</b> {{ k.text }}</div>
+      {% empty %}
+      <p class="muted" style="margin:0">Пока тихо — но хорошая работа всё изменит.</p>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h3>Дайджест недели</h3>
+      <p class="muted" style="margin:0">{{ digest }}</p>
+    </div>
+  </aside>
+</div>
+
+<div id="timer-cfg" data-unit="{{ unit }}" data-norm="{{ norm|default:8 }}" hidden></div>
+{% endblock %}

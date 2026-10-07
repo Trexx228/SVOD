@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .set-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .set-tabs .pill{font-size:13px}
+    .set-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+</style>
+
+<h2 style="margin:0 0 14px">
+    {% if dept %}Подразделение · {{ dept.name }}{% else %}Новое подразделение{% endif %}
+</h2>
+
+<p style="margin-bottom:14px"><a class="pill" href="{% url 'settings_departments' %}">← Все подразделения</a></p>
+
+<div class="card" style="max-width:560px">
+    <form method="post">
+        {% csrf_token %}
+        <label>Название</label>
+        <input name="name" required maxlength="150" value="{{ dept.name|default:'' }}"
+               placeholder="Например, ОГК «Генераторы»">
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green">
+                {% if dept %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </p>
+    </form>
+</div>
+{% endblock %}

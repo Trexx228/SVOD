@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Загрузка отдела" %}
+
+<style>
+    .wl-toolbar{
+        display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+        margin-bottom:14px;
+    }
+    .wl-legend{
+        display:flex;gap:14px;flex-wrap:wrap;
+        font-size:12px;color:var(--muted);margin-bottom:12px;
+    }
+    .wl-legend span{display:inline-flex;align-items:center;gap:6px}
+    .wl-legend i{
+        width:14px;height:14px;border-radius:4px;display:inline-block;
+    }
+    .wl-legend .ok{background:color-mix(in srgb,var(--green) 35%,transparent);border:1px solid var(--green)}
+    .wl-legend .over{background:color-mix(in srgb,var(--red) 30%,transparent);border:1px solid var(--red)}
+    .wl-legend .under{background:color-mix(in srgb,var(--blue) 25%,transparent);border:1px solid var(--blue)}
+    .wl-legend .empty{background:var(--soft);border:1px solid var(--line)}
+
+    .wl-wrap{
+        overflow-x:auto;
+        background:var(--card);
+        border:1px solid var(--line);
+        border-radius:14px;
+        box-shadow:var(--shadow);
+    }
+    .wl-table{
+        width:100%;
+        border-collapse:separate;
+        border-spacing:0;
+        font-size:13px;
+        min-width:800px;
+    }
+    .wl-table th,
+    .wl-table td{
+        padding:8px 10px;
+        border-bottom:1px solid var(--line);
+        text-align:left;
+        vertical-align:top;
+    }
+    .wl-table thead th{
+        color:var(--muted);
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:.4px;
+        font-weight:700;
+        background:var(--soft);
+        border-bottom:1px solid var(--line);
+        position:sticky;
+        top:0;
+        z-index:1;
+    }
+    .wl-table thead th.wl-week{
+        text-align:center;
+        min-width:110px;
+    }
+    .wl-table thead th.wl-week.is-current{
+        background:color-mix(in srgb,var(--blue) 12%,var(--soft));
+        color:var(--blue);
+    }
+    .wl-table thead th.wl-week.is-past{
+        opacity:.65;
+    }
+    .wl-table tbody tr:hover{background:var(--soft)}
+    .wl-table tfoot td{
+        background:var(--soft);
+        font-weight:800;
+        border-top:2px solid var(--line);
+    }
+
+    .wl-user{
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+        min-width:170px;
+        max-width:230px;
+    }
+    .wl-user a{
+        color:var(--ink);
+        font-weight:700;
+        text-decoration:none;
+    }
+    .wl-user a:hover{color:var(--blue)}
+    .wl-user .meta{
+        color:var(--muted);
+        font-size:11px;
+    }
+
+    .wl-cell{
+        border-radius:8px;
+        padding:6px 8px;
+        font-weight:700;
+        text-align:center;
+        cursor:default;
+        min-width:100px;
+        position:relative;
+    }
+    .wl-cell.empty{
+        background:var(--soft);
+        color:var(--muted);
+        font-weight:400;
+    }
+    .wl-cell.under{
+        background:color-mix(in srgb,var(--blue) 18%,transparent);
+        color:var(--blue);
+    }
+    .wl-cell.ok{
+        background:color-mix(in srgb,var(--green) 22%,transparent);
+        color:var(--green);
+    }
+    .wl-cell.over{
+        background:color-mix(in srgb,var(--red) 22%,transparent);
+        color:var(--red);
+    }
+    .wl-cell.is-past{
+        opacity:.65;
+    }
+    .wl-cell .hrs{
+        font-size:14px;
+        line-height:1.1;
+    }
+    .wl-cell .sub{
+        font-size:10px;
+        color:var(--muted);
+        font-weight:600;
+        margin-top:2px;
+    }
+    .wl-cell .od{
+        position:absolute;
+        top:2px;
+        right:4px;
+        background:var(--red);
+        color:#fff;
+        border-radius:999px;
+        font-size:9px;
+        padding:0 5px;
+        line-height:14px;
+        font-weight:800;
+    }
+
+    .wl-total{
+        font-weight:800;
+        text-align:center;
+        white-space:nowrap;
+    }
+    .wl-total .sub{
+        display:block;
+        color:var(--muted);
+        font-weight:600;
+        font-size:11px;
+    }
+
+    /* Модал с задачами ячейки */
+    .wl-tip{
+        position:fixed;
+        z-index:130;
+        background:var(--card);
+        border:1px solid var(--line);
+        border-radius:12px;
+        padding:10px 12px;
+        box-shadow:0 12px 32px rgba(0,0,0,.45);
+        max-width:360px;
+        font-size:12px;
+        display:none;
+    }
+    .wl-tip ul{list-style:none;margin:0;padding:0}
+    .wl-tip li{
+        padding:4px 0;
+        border-bottom:1px dashed var(--line);
+        display:flex;
+        gap:8px;
+        justify-content:space-between;
+        align-items:baseline;
+    }
+    .wl-tip li:last-child{border-bottom:0}
+    .wl-tip li a{
+        color:var(--ink);
+        text-decoration:none;
+        flex:1;
+        min-width:0;
+    }
+    .wl-tip li a:hover{color:var(--blue)}
+    .wl-tip li .h{
+        color:var(--muted);
+        font-weight:700;
+        white-space:nowrap;
+    }
+    .wl-tip li .badge-od{
+        background:var(--red);
+        color:#fff;
+        border-radius:999px;
+        font-size:10px;
+        padding:0 6px;
+        font-weight:700;
+    }
+</style>
+
+{# ─── Панель управления ─── #}
+<div class="wl-toolbar">
+    <a class="pill"
+       href="?weeks={{ weeks_count }}&offset={{ prev_offset }}">← Раньше</a>
+    <a class="pill" href="?weeks={{ weeks_count }}&offset=0">Сегодня</a>
+    <a class="pill"
+       href="?weeks={{ weeks_count }}&offset={{ next_offset }}">Позже →</a>
+
+    <span style="color:var(--muted);font-size:13px;margin-left:12px">
+        {{ start_monday|date:'d.m.Y' }} — {{ end_sunday|date:'d.m.Y' }}
+    </span>
+
+    <span style="margin-left:auto;display:flex;gap:6px">
+        <a class="pill {% if weeks_count == 4 %}on{% endif %}"
+           href="?weeks=4&offset={{ offset_weeks }}">4 недели</a>
+        <a class="pill {% if weeks_count == 8 %}on{% endif %}"
+           href="?weeks=8&offset={{ offset_weeks }}">8 недель</a>
+    </span>
+</div>
+
+{# ─── Легенда ─── #}
+<div class="wl-legend">
+    <span><i class="empty"></i>не загружен</span>
+    <span><i class="under"></i>&lt; 60% нормы</span>
+    <span><i class="ok"></i>60–110%</span>
+    <span><i class="over"></i>&gt; 110% — перегруз</span>
+    <span style="margin-left:14px">
+        Норма недели: <b>{{ week_norm|floatformat:0 }} ч</b>
+        ({{ norm|floatformat:0 }} ч × 5 раб. дней)
+    </span>
+</div>
+
+{% if not rows %}
+<div class="card" style="text-align:center;color:var(--muted);padding:36px 0">
+    В вашем подразделении нет активных сотрудников.
+</div>
+{% else %}
+
+{# ─── Таблица ─── #}
+<div class="wl-wrap">
+    <table class="wl-table">
+        <thead>
+        <tr>
+            <th style="min-width:180px">Сотрудник</th>
+            {% for col in week_cols %}
+            <th class="wl-week {% if col.is_current %}is-current{% endif %} {% if col.is_past %}is-past{% endif %}">
+                {{ col.label }}
+                {% if col.is_current %}<div style="font-size:9px;color:var(--blue);font-weight:800">сейчас</div>{% endif %}
+            </th>
+            {% endfor %}
+            <th class="wl-week" style="min-width:100px">Итого</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>
+                <div class="wl-user">
+                    <a href="{% url 'manager_person' row.user.pk %}">{{ row.user.full_name }}</a>
+                    <span class="meta">
+                        {{ row.user.department.name|default:'—' }}
+                        {% if row.user.role %} · {{ row.user.role.name }}{% endif %}
+                    </span>
+                </div>
+            </td>
+            {% for cell in row.cells %}
+            <td style="text-align:center">
+                <div class="wl-cell {{ cell.cls }} {% if cell.is_past %}is-past{% endif %}"
+                     data-tasks='{% for ti in cell.tasks %}{% if not forloop.first %}||{% endif %}{{ ti.task.pk }}|{{ ti.task.title|escapejs }}|{{ ti.hours }}|{% if ti.is_overdue %}1{% else %}0{% endif %}{% endfor %}'
+                     data-user="{{ row.user.full_name|escapejs }}">
+                    {% if cell.overdue_count %}
+                    <span class="od" title="Просрочено в этой ячейке">{{ cell.overdue_count }}</span>
+                    {% endif %}
+                    {% if cell.hours > 0 %}
+                    <div class="hrs">{{ cell.hours|floatformat:1 }} ч</div>
+                    <div class="sub">{{ cell.pct }}% · {{ cell.tasks_count }} з.</div>
+                    {% else %}
+                    <div class="hrs" style="color:var(--muted)">—</div>
+                    {% endif %}
+                </div>
+            </td>
+            {% endfor %}
+            <td class="wl-total">
+                {{ row.total_hours|floatformat:1 }} ч
+                <span class="sub">ср. {{ row.avg_pct }}%</span>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+        <tr>
+            <td>Итого по неделе</td>
+            {% for wt in week_totals %}
+            <td style="text-align:center">
+                <div class="wl-total">
+                    {{ wt.hours|floatformat:1 }} ч
+                    <span class="sub">{{ wt.pct }}%</span>
+                </div>
+            </td>
+            {% endfor %}
+            <td class="wl-total">
+                {{ total_members }} сотр.
+            </td>
+        </tr>
+        </tfoot>
+    </table>
+</div>
+
+{# ─── Всплывающий список задач ─── #}
+<div class="wl-tip" id="wl-tip"></div>
+
+<p style="color:var(--muted);font-size:12px;margin:12px 0 0">
+    Часы открытых задач распределены равномерно по календарным дням интервала
+    <code>[start_due, due]</code>. Задача без сроков попадает в неделю создания.
+    Просроченные задачи всегда видны в текущей неделе и помечены красным счётчиком.
+</p>
+
+{% endif %}
+
+<script>
+    (function(){
+        const tip = document.getElementById('wl-tip');
+        if (!tip) return;
+
+        function hide(){
+            tip.style.display = 'none';
+            tip.innerHTML = '';
+        }
+
+        function show(cell){
+            const raw = cell.dataset.tasks || '';
+            if (!raw) return;
+
+            const user = cell.dataset.user || '';
+            const items = raw.split('||').filter(Boolean).map(function(row){
+                // row = "pk|title|hours|is_overdue"
+                const [pk, title, hours, od] = row.split('|');
+                return { pk: pk, title: title, hours: hours, overdue: od === '1' };
+            });
+
+            if (!items.length) return;
+
+            let html = '<div style="font-weight:800;margin-bottom:6px">' +
+                       user + ' · ' + items.length + ' задач</div><ul>';
+            items.forEach(function(t){
+                const od = t.overdue ? ' <span class="badge-od">просроч.</span>' : '';
+                html += '<li>' +
+                    '<a href="/tasks/task/' + t.pk + '/">' + t.title + '</a>' +
+                    '<span class="h">' + t.hours + ' ч' + od + '</span>' +
+                    '</li>';
+            });
+            html += '</ul>';
+            tip.innerHTML = html;
+            tip.style.display = 'block';
+
+            const r = cell.getBoundingClientRect();
+            const tw = tip.offsetWidth;
+            const th = tip.offsetHeight;
+            let x = r.left + window.scrollX + r.width / 2 - tw / 2;
+            let y = r.bottom + window.scrollY + 6;
+
+            // Не выходим за края экрана
+            if (x < 8) x = 8;
+            if (x + tw > window.innerWidth - 8){
+                x = window.innerWidth - tw - 8 + window.scrollX;
+            }
+            if (y + th > window.innerHeight + window.scrollY - 8){
+                y = r.top + window.scrollY - th - 6;
+            }
+
+            tip.style.left = x + 'px';
+            tip.style.top = y + 'px';
+        }
+
+        document.addEventListener('mouseover', function(e){
+            const cell = e.target.closest('.wl-cell');
+            if (cell && cell.dataset.tasks){
+                show(cell);
+            }
+        });
+
+        document.addEventListener('mouseout', function(e){
+            const cell = e.target.closest('.wl-cell');
+            if (cell && !cell.contains(e.relatedTarget)){
+                hide();
+            }
+        });
+
+        document.addEventListener('scroll', hide, true);
+        document.addEventListener('keydown', function(e){
+            if (e.key === 'Escape') hide();
+        });
+    })();
+</script>
+{% endblock %}

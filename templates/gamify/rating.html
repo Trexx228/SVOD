@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Топ-20 сотрудников месяца</h2>
+<div class="card">
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Место</th>
+            <th>Сотрудник</th>
+            <th>Должность</th>
+            <th>Подразделение</th>
+            <th>Закрыто задач</th>
+            <th>Объём плана, ч</th>
+            <th>KPI</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+            <td>{{ r.place }}</td>
+            <td>{{ r.executor__full_name }}</td>
+            <td>{{ r.position }}</td>
+            <td>{{ r.department }}</td>
+            <td>{{ r.closed }}</td>
+            <td>{{ r.plan|floatformat:1 }}</td>
+            <td>{% if r.kpi %}{% if r.kpi > 300 %}>300{% else %}{{ r.kpi }}{% endif %}%{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7">За месяц ещё нет закрытых задач — станьте первым!</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:13px;margin-top:10px">
+        Рейтинг считается по закрытым за 30 дней задачам: сначала количество, затем объём плана;
+        KPI показан для справки (план/факт при факте ≥ 1 ч).</p>
+</div>
+{% endblock %}

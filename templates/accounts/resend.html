@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:40px auto">
+    <h2>Повторная отправка письма</h2>
+    <p style="color:var(--muted);margin:0 0 8px">
+        Если аккаунт ещё не активирован, отправим письмо со ссылкой повторно.
+    </p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required
+               autocomplete="email" placeholder="ваша@почта.eag.su">
+
+        <p style="margin-top:16px">
+            <button class="btn blue" type="submit">Отправить</button>
+        </p>
+    </form>
+
+    <p style="margin:14px 0 0"><a href="{% url 'login' %}">← Вернуться ко входу</a></p>
+</div>
+{% endblock %}

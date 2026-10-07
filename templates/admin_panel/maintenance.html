@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .mt-banner{border-radius:14px;padding:16px 20px;margin-bottom:16px;
+               display:flex;justify-content:space-between;align-items:center;
+               gap:14px;flex-wrap:wrap;font-weight:700}
+    .mt-banner.ok{background:color-mix(in srgb,var(--green) 12%,var(--soft));
+                  border:1px solid color-mix(in srgb,var(--green) 45%,var(--line))}
+    .mt-banner.warn{background:color-mix(in srgb,var(--orange) 12%,var(--soft));
+                    border:1px solid color-mix(in srgb,var(--orange) 45%,var(--line))}
+    .mt-banner.crit{background:color-mix(in srgb,var(--red) 12%,var(--soft));
+                    border:1px solid color-mix(in srgb,var(--red) 50%,var(--line))}
+    .mt-banner .v{font-size:22px}
+
+    .mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+             gap:14px;margin-bottom:14px}
+    .mt-card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+             padding:16px;display:flex;flex-direction:column;gap:10px}
+    .mt-card h4{margin:0;font-size:14px;text-transform:uppercase;
+                letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center}
+    .mt-card .desc{color:var(--muted);font-size:12px;line-height:1.45;flex:1 1 auto}
+    .mt-card .actions{display:flex;gap:6px;flex-wrap:wrap}
+
+    .mt-counts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+               gap:8px}
+    .mt-counts .c{background:var(--soft);border:1px solid var(--line);border-radius:10px;
+                  padding:8px 10px}
+    .mt-counts .l{color:var(--muted);font-size:11px;text-transform:uppercase;
+                  letter-spacing:.4px;font-weight:700}
+    .mt-counts .v{font-size:18px;font-weight:800;letter-spacing:-.01em}
+
+    .mt-recent{width:100%;border-collapse:collapse;font-size:13px}
+    .mt-recent th,.mt-recent td{padding:7px 10px;border-bottom:1px solid var(--line);
+                                text-align:left;vertical-align:top}
+    .mt-recent th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                  letter-spacing:.4px;font-weight:700}
+    .mt-recent tbody tr:hover{background:var(--soft)}
+    .mt-recent .k{font-size:11px;color:var(--muted)}
+</style>
+
+{% if not health.critical_ok %}
+<div class="mt-banner crit">
+    <span>⚠ Критично: БД или диск требуют внимания</span>
+    <a class="pill" href="{% url 'settings_health' %}">Открыть health →</a>
+</div>
+{% elif health.warnings %}
+<div class="mt-banner warn">
+    <span>Внимание: {{ health.warnings|join:', ' }}</span>
+    <a class="pill" href="{% url 'settings_health' %}">Детали →</a>
+</div>
+{% else %}
+<div class="mt-banner ok">
+    <span>✓ Система здорова</span>
+    <span class="v">{{ now|date:'H:i' }}</span>
+</div>
+{% endif %}
+
+<div class="mt-grid">
+    <div class="mt-card">
+        <h4>Health-check</h4>
+        <div class="desc">
+            Проверить БД, диск, бэкапы, алерты, AD. Полная диагностика состояния.
+        </div>
+        <div class="actions">
+            <a class="btn blue" href="{% url 'settings_health' %}">Открыть</a>
+            <a class="pill" href="{% url 'settings_health' %}?format=json">JSON</a>
+        </div>
+    </div>
+
+    <div class="mt-card">
+        <h4>Пересчёт простоя</h4>
+        <div class="desc">
+            Пересчитать <code>idle_since</code> по <code>last_activity_at</code>.
+            Обычно запускается по cron каждые 5 минут.
+        </div>
+        <form method="post" action="{% url 'settings_online_recompute' %}" style="margin:0">
+            {% csrf_token %}
+            <button type="submit" class="btn blue">Пересчитать</button>
+        </form>
+    </div>
+
+    <div class="mt-card">
+        <h4>Создать бэкап</h4>
+        <div class="desc">
+            Снять консистентный снимок SQLite через VACUUM INTO.
+            {% if latest_backup %}
+            Последний: <b>{{ latest_backup_age_h }} ч назад</b> ({{ latest_backup.name }}).
+            {% else %}
+            <span style="color:var(--orange)">Бэкапов нет — сделайте первый.</span>
+            {% endif %}
+        </div>
+        <div class="actions">
+            <form method="post" action="{% url 'settings_backup_create' %}" style="margin:0">
+                {% csrf_token %}
+                <button type="submit" class="btn green">Создать</button>
+            </form>
+            <a class="pill" href="{% url 'settings_backups' %}">Все бэкапы</a>
+        </div>
+    </div>
+
+    <div class="mt-card">
+        <h4>Очистка старых записей</h4>
+        <div class="desc">
+            Аудит — 180 дней, входы — 90 дней, прочитанные алерты — 30 дней,
+            снимки — 400 дней. Необратимо.
+        </div>
+        <form method="post" action="{% url 'settings_system_cleanup' %}" style="margin:0"
+              data-confirm="Удалить устаревшие записи? Сначала снимите бэкап.">
+            {% csrf_token %}
+            <button type="submit" class="btn red">Очистить</button>
+        </form>
+    </div>
+
+    <div class="mt-card">
+        <h4>Экспорт снапшота</h4>
+        <div class="desc">
+            Скачать ZIP с CSV всех справочников, логов и метаданными.
+            Для аудита или передачи.
+        </div>
+        <div class="actions">
+            <a class="btn gray" href="{% url 'settings_export_snapshot' %}">Скачать ZIP</a>
+            <a class="pill" href="{% url 'settings_system' %}">О системе</a>
+        </div>
+    </div>
+
+    <div class="mt-card">
+        <h4>Мониторинг</h4>
+        <div class="desc">
+            Endpoint для Zabbix/UptimeRobot: <code>/settings/health/?format=text</code>.
+            Отдаёт <code>svod_health=ok</code> или <code>warn</code>.
+        </div>
+        <div class="actions">
+            <a class="pill" href="{% url 'settings_health' %}?format=text" target="_blank">Проверить</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Состояние сейчас</h3>
+    <div class="mt-counts">
+        <div class="c"><div class="l">Аудит</div><div class="v">{{ counters.audit_total }}</div></div>
+        <div class="c"><div class="l">Входы</div><div class="v">{{ counters.logins_total }}</div></div>
+        <div class="c"><div class="l">За 24ч (ок)</div><div class="v" style="color:var(--green)">{{ counters.last_24h_logins }}</div></div>
+        <div class="c"><div class="l">За 24ч (отказ)</div><div class="v" style="color:var(--red)">{{ counters.last_24h_logins_fail }}</div></div>
+        <div class="c"><div class="l">Алерты</div><div class="v" style="color:var(--orange)">{{ counters.alerts_unseen }}</div></div>
+        <div class="c"><div class="l">Активные задачи</div><div class="v">{{ counters.tasks_active }}</div></div>
+        <div class="c"><div class="l">Бэкапы</div><div class="v">{{ counters.backups_count }}</div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:12px">
+        <span class="pill">DEBUG: {% if env_brief.debug %}да{% else %}нет{% endif %}</span>
+        <span class="pill">TZ: {{ env_brief.timezone }}</span>
+        <span class="pill">БД: {{ env_brief.db_engine }}</span>
+        <span class="pill">AD: {% if env_brief.ad_enabled %}вкл{% else %}выкл{% endif %}</span>
+        <span class="pill">SMTP: {{ env_brief.email_backend }}</span>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Последние операции в админке</h3>
+    <table class="mt-recent">
+        <thead>
+        <tr>
+            <th>Когда</th>
+            <th>Кто</th>
+            <th>Действие</th>
+            <th>Объект</th>
+            <th>Детали</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for op in recent_ops %}
+        <tr>
+            <td style="white-space:nowrap">{{ op.created_at|date:'d.m H:i:s' }}</td>
+            <td>{{ op.actor.full_name|default:'—' }}</td>
+            <td><span class="badge">{{ op.get_action_display }}</span></td>
+            <td>
+                <code style="font-size:11px">{{ op.target_model }}</code>
+                <div class="k">{{ op.target_repr|truncatechars:50 }}</div>
+            </td>
+            <td class="k">
+                {% if op.changes %}
+                {% for k, v in op.changes.items %}
+                {{ k }}: {{ v|truncatechars:40 }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px 0">
+            Записей нет.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div style="text-align:right;margin-top:10px">
+        <a class="pill" href="{% url 'settings_audit' %}">Весь журнал аудита →</a>
+    </div>
+</div>
+{% endblock %}

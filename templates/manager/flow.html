@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Загрузка команды" %}
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card bg-success text-white">
+        <div class="card-body text-center"><h3>{{ buckets.0 }}</h3><p class="mb-0">0–3 дн</p></div>
+    </div></div>
+    <div class="col-md-3"><div class="card bg-info text-white">
+        <div class="card-body text-center"><h3>{{ buckets.1 }}</h3><p class="mb-0">4–7 дн</p></div>
+    </div></div>
+    <div class="col-md-3"><div class="card bg-warning text-dark">
+        <div class="card-body text-center"><h3>{{ buckets.2 }}</h3><p class="mb-0">8–21 дн</p></div>
+    </div></div>
+    <div class="col-md-3"><div class="card bg-danger text-white">
+        <div class="card-body text-center"><h3>{{ buckets.3 }}</h3><p class="mb-0">22+ дн</p></div>
+    </div></div>
+</div>
+<p style="color:var(--muted);font-size:13px">
+    Задачи в корзинах 8+ дней — кандидаты на разбор: либо забыты, либо ждут смежников.
+</p>
+
+<div class="card" style="margin-top:18px">
+    <h3 style="margin:0 0 12px">Закрытые задачи за 8 недель, подразделение</h3>
+    <div style="display:flex;align-items:flex-end;height:200px;gap:8px">
+        {% for w in weeks %}
+        <div style="flex:1;text-align:center">
+            <div style="height:{{ w.pct }}%;min-height:20px;background:linear-gradient(180deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#000));border-radius:6px 6px 0 0"
+                 title="{{ w.label }}: {{ w.cnt }} задач, {{ w.hours }} ч"></div>
+            <small style="color:var(--muted);font-size:11px">{{ w.label }}</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

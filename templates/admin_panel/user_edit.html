@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">
+    {% if edit_user %}Пользователь · {{ edit_user.full_name }}{% else %}Новый пользователь{% endif %}
+</h2>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_users' %}">← Все пользователи</a>
+    {% if edit_user %}
+    <a class="pill" href="{% url 'settings_user_detail' edit_user.pk %}">Карточка сотрудника</a>
+    <a class="pill" href="{% url 'settings_logins' %}?q={{ edit_user.email }}">Входы пользователя</a>
+    <a class="pill" href="{% url 'settings_tasks_page' %}?executor={{ edit_user.pk }}">Задачи пользователя</a>
+    <a class="pill" href="/admin/accounts/user/{{ edit_user.pk }}/change/" target="_blank">
+        Django admin
+    </a>
+    {% endif %}
+</div>
+
+<style>
+    .ue-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+    .ue-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+    .ue-stat .label{color:var(--muted);font-size:11px;text-transform:uppercase;
+                    letter-spacing:.4px;font-weight:700}
+    .ue-stat .value{font-size:22px;font-weight:800;letter-spacing:-.01em}
+    .ue-stat.warn .value{color:var(--orange)}
+    .ue-stat.ok .value{color:var(--green)}
+    .ue-stat.info .value{color:var(--blue)}
+
+    .ue-logins{width:100%;border-collapse:collapse;font-size:12px}
+    .ue-logins th,.ue-logins td{padding:6px 8px;border-bottom:1px solid var(--line);
+                                text-align:left;vertical-align:top}
+    .ue-logins th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                  letter-spacing:.4px;font-weight:700}
+    .ue-ok{color:var(--green);font-weight:700}
+    .ue-fail{color:var(--red);font-weight:700}
+</style>
+
+<div class="card" style="max-width:640px">
+    <form method="post">
+        {% csrf_token %}
+
+        <label>ФИО</label>
+        <input name="full_name" required maxlength="150"
+               value="{{ edit_user.full_name|default:'' }}">
+
+        <label>Корпоративная почта</label>
+        <input type="email" name="email" required
+               value="{{ edit_user.email|default:'' }}">
+
+        {% if not edit_user %}
+        <label>Пароль</label>
+        <input type="text" name="password"
+               placeholder="Оставьте пустым — будет установлен unusable (вход только через AD)">
+        {% endif %}
+
+        <label>Подразделение</label>
+        <select name="department">
+            <option value="">— без подразделения —</option>
+            {% for d in departments %}
+            <option value="{{ d.pk }}" {% if edit_user and edit_user.department_id == d.pk %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Роль</label>
+        <select name="role">
+            <option value="">— без роли —</option>
+            {% for r in roles %}
+            <option value="{{ r.pk }}" {% if edit_user and edit_user.role_id == r.pk %}selected{% endif %}>{{ r.name }}</option>
+            {% endfor %}
+        </select>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+            <input type="checkbox" name="is_active" value="1" style="width:auto"
+                   {% if not edit_user or edit_user.is_active %}checked{% endif %}>
+            Учётная запись активна
+        </label>
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green">
+                {% if edit_user %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </p>
+    </form>
+</div>
+
+{% if edit_user %}
+<div class="card" style="max-width:920px">
+    <h3 style="margin:0 0 12px">Сводка по активности</h3>
+
+    <div class="ue-stats">
+        <div class="ue-stat info">
+            <div class="label">Всего задач</div>
+            <div class="value">{{ task_stats.total }}</div>
+        </div>
+        <div class="ue-stat info">
+            <div class="label">В работе</div>
+            <div class="value">{{ task_stats.in_progress }}</div>
+        </div>
+        <div class="ue-stat">
+            <div class="label">На проверке</div>
+            <div class="value">{{ task_stats.review }}</div>
+        </div>
+        <div class="ue-stat ok">
+            <div class="label">Готово</div>
+            <div class="value">{{ task_stats.done }}</div>
+        </div>
+        <div class="ue-stat {% if task_stats.overdue %}warn{% endif %}">
+            <div class="label">Просрочено</div>
+            <div class="value">{{ task_stats.overdue }}</div>
+        </div>
+        <div class="ue-stat">
+            <div class="label">Поставил задач</div>
+            <div class="value">{{ task_stats.issued }}</div>
+        </div>
+        <div class="ue-stat ok">
+            <div class="label">Успешных входов</div>
+            <div class="value">{{ logins_total }}</div>
+        </div>
+        <div class="ue-stat {% if logins_failed %}warn{% endif %}">
+            <div class="label">Отказов входа</div>
+            <div class="value">{{ logins_failed }}</div>
+        </div>
+    </div>
+
+    <h4 style="margin:16px 0 8px;font-size:14px">Последние входы</h4>
+    <table class="ue-logins">
+        <thead>
+        <tr>
+            <th style="white-space:nowrap">Когда</th>
+            <th>Результат</th>
+            <th>IP</th>
+            <th>User-Agent</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in last_logins %}
+        <tr>
+            <td style="white-space:nowrap">{{ row.created_at|date:'d.m.Y H:i:s' }}</td>
+            <td>
+                {% if row.success %}<span class="ue-ok">успешно</span>
+                {% else %}<span class="ue-fail">отказ</span>{% endif %}
+            </td>
+            <td style="color:var(--muted)">{{ row.ip|default:'—' }}</td>
+            <td style="color:var(--muted)">{{ row.user_agent|truncatechars:60|default:'—' }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px 0">
+            Записей пока нет.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

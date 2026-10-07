@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Нормы типовых задач" %}
+
+<div class="card" style="padding:0">
+    <table>
+        <thead>
+        <tr><th>Типовая задача</th><th>Норма, ч</th><th>Закрыто</th><th>Медиана факта, ч</th><th>Точность ±20%</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+            <td><b>{{ r.tt.name }}</b></td>
+            <td>{{ r.tt.plan_hours|floatformat:1 }}</td>
+            <td>{{ r.n }}</td>
+            <td>{% if r.median_fact %}{{ r.median_fact|floatformat:1 }}{% else %}—{% endif %}</td>
+            <td>{% if r.acc is not None %}<b>{{ r.acc }}%</b>{% else %}—{% endif %}</td>
+            <td>{% if r.revise %}<span class="badge" style="background:color-mix(in srgb,var(--orange) 20%,transparent);color:var(--orange)">норма требует ревизии</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px 0">Типовых задач пока нет — создайте их в админке.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p style="color:var(--muted);font-size:13px">
+    Точность = доля закрытых задач, где факт попал в норму ±20%. Ниже 50% — норму пора пересмотреть.
+</p>
+{% endblock %}

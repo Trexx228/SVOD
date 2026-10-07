@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Техподдержка: входящие обращения</h2>
+
+<div class="card" style="padding:0">
+    <table>
+        <thead>
+        <tr>
+            <th>Когда</th>
+            <th>Тип</th>
+            <th>Автор</th>
+            <th>Сообщение</th>
+            <th>Вложения</th>
+            <th>Статус</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for t in tickets %}
+        <tr>
+            <td style="white-space:nowrap">{{ t.created_at|date:'d.m.Y H:i' }}</td>
+            <td>{{ t.get_kind_display }}</td>
+            <td>
+                {{ t.author.full_name|default:'гость' }}<br>
+                <small style="color:var(--muted)">{{ t.page|default:'—' }}</small>
+            </td>
+            <td>{{ t.text|linebreaksbr }}</td>
+            <td>
+                {% for a in t.attachments.all %}
+                {% if a.image %}
+                <a href="{{ a.file.url }}" target="_blank">
+                    <img src="{{ a.file.url }}" alt="{{ a.name }}"
+                         style="width:60px;height:45px;object-fit:cover;border-radius:8px;
+                          border:1px solid var(--line);margin:2px">
+                </a>
+                {% else %}
+                <a href="{{ a.file.url }}" target="_blank">📄 {{ a.name }}</a><br>
+                {% endif %}
+                {% empty %}
+                <span style="color:var(--muted)">—</span>
+                {% endfor %}
+            </td>
+            <td>
+                {% if t.done %}
+                <span class="badge" style="background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)">обработано</span>
+                {% else %}
+                <span class="badge" style="background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)">новое</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="post" style="margin:0">
+                    {% csrf_token %}
+                    <input type="hidden" name="ticket" value="{{ t.pk }}">
+                    <button type="submit"
+                            class="btn {% if t.done %}gray{% else %}green{% endif %}"
+                            style="padding:6px 12px;font-size:13px">
+                        {% if t.done %}Вернуть в работу{% else %}Обработано{% endif %}
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7" style="color:var(--muted);text-align:center;padding:24px 0">
+                Обращений пока нет.
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

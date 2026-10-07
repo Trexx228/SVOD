@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Гант по заказам" %}
+
+<style>
+    .ot-leg {display:inline-flex;gap:6px;align-items:center;font-size:.85rem;color:var(--muted)}
+    .ot-sample {width:26px;height:12px;border-radius:3px;display:inline-block}
+    .ot-sample.contract {background:color-mix(in srgb,var(--gray) 60%,transparent)}
+    .ot-sample.design   {background:var(--blue)}
+    .ot-sample.prod     {background:var(--green)}
+    .ot-sample.late     {background:repeating-linear-gradient(45deg, var(--red) 0 4px, color-mix(in srgb,var(--red) 45%,#000) 4px 8px)}
+    .ot-sample.milestone {background:transparent;width:14px;height:14px;
+        transform:rotate(45deg);border:2px solid var(--ink)}
+    .ot-sample.milestone.ship {border-color:var(--red)}
+
+    .ot-name {min-width:280px;max-width:340px}
+    .ot-name a {font-weight:700;color:var(--ink);text-decoration:none}
+    .ot-name a:hover {color:var(--blue)}
+    .ot-name small {color:var(--muted)}
+
+    .ot-days {display:flex}
+    .ot-day {flex:1 1 0;text-align:center;font-size:.72rem;color:var(--muted)}
+    .ot-day.we {color:var(--red)}
+    .ot-day.td {font-weight:700;color:var(--blue)}
+
+    .ot-track {
+        position:relative; height:32px;
+        background: repeating-linear-gradient(to right,
+            transparent 0, transparent calc(100% / {{ cols|length }} - 1px),
+            var(--line) calc(100% / {{ cols|length }} - 1px),
+            var(--line) calc(100% / {{ cols|length }}));
+    }
+    .ot-bar {position:absolute; top:10px; height:12px; border-radius:3px}
+    .ot-bar.contract {background:color-mix(in srgb,var(--gray) 60%,transparent);height:6px;top:13px}
+    .ot-bar.design   {background:var(--blue)}
+    .ot-bar.prod     {background:var(--green)}
+    .ot-bar.late     {background:repeating-linear-gradient(45deg, var(--red) 0 4px, color-mix(in srgb,var(--red) 45%,#000) 4px 8px)}
+
+    .ot-milestone {
+        position:absolute; top:14px; width:10px; height:10px;
+        background:var(--card); border:2px solid var(--ink);
+        transform:translateX(-50%) rotate(45deg);
+    }
+    .ot-milestone.milestone-start {border-color:var(--muted)}
+    .ot-milestone.milestone-design {border-color:var(--blue)}
+    .ot-milestone.milestone-design-end {border-color:var(--blue)}
+    .ot-milestone.milestone-ship {border-color:var(--red)}
+
+    .ot-badge {display:inline-block;padding:2px 8px;border-radius:999px;
+               font-size:11px;font-weight:700;margin-left:6px;
+               background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+    .ot-badge.danger {background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+    .ot-badge.warn   {background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .ot-badge.info   {background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+</style>
+
+{# ─── Легенда ─── #}
+<div class="pills" style="margin-bottom:12px">
+    <span class="ot-leg"><i class="ot-sample contract"></i>контракт → проектирование</span>
+    <span class="ot-leg"><i class="ot-sample design"></i>проектирование</span>
+    <span class="ot-leg"><i class="ot-sample prod"></i>производство</span>
+    <span class="ot-leg"><i class="ot-sample late"></i>просрочка</span>
+    <span class="ot-leg"><i class="ot-sample milestone"></i>веха</span>
+    <span class="ot-leg"><i class="ot-sample milestone ship"></i>отгрузка</span>
+</div>
+
+{# ─── Период ─── #}
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <a class="btn gray" href="?y={{ prev.y }}&m={{ prev.m }}&period={{ period }}&state={{ state }}">←</a>
+    <a class="btn gray" href="?y={{ next.y }}&m={{ next.m }}&period={{ period }}&state={{ state }}">→</a>
+    <h3 style="margin:0;font-size:16px">{{ period_label }}</h3>
+    <a class="pill {% if period == 'month' %}on{% endif %}"
+       href="?y={{ y }}&m={{ m }}&period=month&state={{ state }}">Месяц</a>
+    <a class="pill {% if period == 'quarter' %}on{% endif %}"
+       href="?y={{ y }}&m={{ m }}&period=quarter&state={{ state }}">Квартал</a>
+    <a class="pill {% if period == 'year' %}on{% endif %}"
+       href="?y={{ y }}&m=1&period=year&state={{ state }}">Год</a>
+
+    <span style="margin-left:auto;display:flex;gap:6px">
+        <a class="pill {% if state == 'active' %}on{% endif %}"
+           href="?y={{ y }}&m={{ m }}&period={{ period }}&state=active">Активные</a>
+        <a class="pill {% if state == 'overdue' %}on{% endif %}"
+           href="?y={{ y }}&m={{ m }}&period={{ period }}&state=overdue">Просроченные</a>
+        <a class="pill {% if state == 'all' %}on{% endif %}"
+           href="?y={{ y }}&m={{ m }}&period={{ period }}&state=all">Все</a>
+    </span>
+
+    <a class="btn blue"
+       href="{% url 'manager_orders_timeline_csv' %}">⬇ Скачать CSV</a>
+</div>
+
+{# ─── Гант ─── #}
+<div class="card" style="padding:0">
+    <table style="width:100%">
+        <thead>
+        <tr>
+            <th class="ot-name">Заказ</th>
+            <th>
+                <div class="ot-days">
+                    {% for c in cols %}
+                    <span class="ot-day {% if c.weekend %}we{% endif %} {% if c.today %}td{% endif %}">{{ c.label }}</span>
+                    {% endfor %}
+                </div>
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in orders %}
+        <tr>
+            <td class="ot-name">
+                <a href="{% url 'settings_order_detail' row.order.pk %}" target="_blank">
+                    {{ row.order.number }}
+                </a>
+                <span class="ot-badge {{ row.stage.cls }}">{{ row.stage.label }}</span>
+                <br>
+                <small>{{ row.order.product|truncatechars:70 }}</small>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">
+                    {% if row.days_to_ship is not None %}
+                    {% if row.days_to_ship < 0 %}
+                    <span style="color:var(--red);font-weight:700">
+                                просрочено {{ row.days_to_ship|cut:'-' }} р.д.
+                            </span>
+                    {% elif row.days_to_ship < 10 %}
+                    <span style="color:var(--orange);font-weight:700">
+                                до отгрузки {{ row.days_to_ship }} р.д.
+                            </span>
+                    {% else %}
+                    до отгрузки {{ row.days_to_ship }} р.д.
+                    {% endif %}
+                    {% else %}
+                    нет срока
+                    {% endif %}
+                </div>
+            </td>
+            <td>
+                <div class="ot-track">
+                    {% for b in row.bars %}
+                    <div class="ot-bar {{ b.cls }}" style="{{ b.style }}" title="{{ b.title }}"></div>
+                    {% endfor %}
+                    {% for m in row.milestones %}
+                    <div class="ot-milestone {{ m.cls }}" style="{{ m.style }}" title="{{ m.title }}"></div>
+                    {% endfor %}
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2" style="text-align:center;color:var(--muted);padding:30px 0">
+                Заказов за период нет.
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p style="color:var(--muted);font-size:13px;margin-top:10px">
+    Полосы: серым — контракт до старта проектирования, синим — проектирование,
+    зелёным — производство, красным штрихом — просрочка отгрузки.
+    Ромбы — контрольные точки (начало контракта, старт/конец проектирования, отгрузка).
+    Дни указаны в календарных, «раб. дней» — в рабочих с учётом праздников РФ.
+</p>
+{% endblock %}

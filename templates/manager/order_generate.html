@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Генерация плана заказа" %}
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'order_plan' order.pk %}">← К плану заказа</a>
+</div>
+
+<div class="card" style="max-width:720px">
+    <h3 style="margin:0 0 12px">Заказ {{ order.number }} · {{ order.product }}</h3>
+
+    <table style="margin-bottom:16px">
+        <tr><th style="width:220px">Начало контракта</th>
+            <td>{{ order.contract_start|date:'d.m.Y'|default:'—' }}</td></tr>
+        <tr><th>Старт проектирования</th>
+            <td>{{ order.design_start|date:'d.m.Y'|default:'—' }}</td></tr>
+        <tr><th>Конец проектирования</th>
+            <td>{{ order.design_end|date:'d.m.Y'|default:'—' }}</td></tr>
+        <tr><th>Срок отгрузки</th>
+            <td>{{ order.ship_due|date:'d.m.Y'|default:'—' }}</td></tr>
+    </table>
+
+    {% if has_tasks %}
+    <div style="background:color-mix(in srgb,var(--orange) 12%,var(--soft));
+                border:1px solid var(--orange);border-radius:12px;
+                padding:10px 14px;margin-bottom:14px;font-size:13px">
+        ⚠ У заказа уже есть задачи. Генерация добавит ещё — существующие не тронет.
+    </div>
+    {% endif %}
+
+    {% if templates %}
+    <form method="post">
+        {% csrf_token %}
+        <label>Шаблон маршрута</label>
+        <select name="template" required>
+            <option value="">— выберите —</option>
+            {% for t in templates %}
+            <option value="{{ t.pk }}" {% if t.is_default %}selected{% endif %}>
+                {{ t.name }}{% if t.is_default %} · по умолчанию{% endif %}
+                · {{ t.stages.count }} этапов
+            </option>
+            {% endfor %}
+        </select>
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green"
+                    onclick="return confirm('Сгенерировать задачи по шаблону?');">
+                Сгенерировать план
+            </button>
+        </p>
+    </form>
+    {% else %}
+    <div style="color:var(--muted);padding:12px 0">
+        Нет активных шаблонов.
+        <a href="/admin/tasks/ordertemplate/add/" target="_blank">Создать в админке →</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

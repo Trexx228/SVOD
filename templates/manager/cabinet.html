@@ -1,0 +1,550 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  .cc-digest{background:var(--soft);border:1px solid var(--line);border-radius:14px;
+             padding:12px 16px;margin-bottom:16px;color:var(--ink)}
+
+  .cc-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+            gap:12px;margin-bottom:18px}
+
+  .cc-tile{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;
+    box-shadow:var(--shadow);text-decoration:none;color:inherit;cursor:pointer;
+    display:flex;flex-direction:column;min-height:120px;
+    transition:transform .12s, box-shadow .12s, border-color .12s;
+  }
+  .cc-tile:hover{transform:translateY(-2px);border-color:var(--blue);
+                 box-shadow:0 10px 30px rgba(37,99,235,.18)}
+  .cc-tile .cc-more{margin-top:auto;padding-top:10px;
+                    color:var(--blue);font-size:12px;font-weight:700}
+  .cc-tile .lbl{color:var(--muted);font-size:12px;text-transform:uppercase;
+                letter-spacing:.5px;font-weight:700}
+  .cc-tile .num{font-size:30px;font-weight:800;line-height:1.1;margin-top:4px}
+  .cc-tile .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .delta-up{color:var(--green);font-weight:700}
+  .delta-dn{color:var(--red);font-weight:700}
+  .delta-no{color:var(--muted)}
+
+  .cc-block h3{margin:0 0 8px;font-size:14px;font-weight:800;letter-spacing:.2px}
+  .cc-block h3 .em{color:var(--muted);font-weight:600;font-size:12px;margin-left:6px}
+  .cc-list{margin:0;padding:0;list-style:none}
+  .cc-list li{padding:6px 0;border-bottom:1px solid var(--line);
+              display:flex;gap:8px;align-items:baseline}
+  .cc-list li:last-child{border-bottom:0}
+  .cc-list .name{font-weight:600;flex:1;min-width:0}
+  .cc-list .name a{color:var(--ink);text-decoration:none}
+  .cc-list .name a:hover{color:var(--blue)}
+  .cc-list .meta{color:var(--muted);font-size:12px;white-space:nowrap}
+  .cc-badge{background:var(--softblue);color:var(--blue);border-radius:999px;
+            padding:1px 8px;font-size:11px;font-weight:700}
+  .cc-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+  .cc-badge.bad {background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+  .cc-badge.ok  {background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+
+  .cc-empty{color:var(--muted);font-size:13px;padding:6px 0}
+
+  .cc-review td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .cc-review form{display:inline;margin:0}
+
+  .cc-chart{display:flex;align-items:flex-end;gap:6px;height:96px}
+  .cc-chart .col{flex:1;min-height:4px;border-radius:6px 6px 0 0;
+                 background:linear-gradient(180deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#000))}
+  .cc-chart-lbl{display:flex;gap:6px;margin-top:4px}
+  .cc-chart-lbl span{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+
+  @keyframes urgentPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.7)}
+                         50%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}
+
+  /* Сворачиваемые блоки */
+  details.cc-fold{border:1px solid var(--line);border-radius:14px;
+                  background:var(--card);margin-bottom:14px;padding:0}
+  details.cc-fold > summary{
+      cursor:pointer;padding:14px 18px;font-weight:800;font-size:14px;
+      list-style:none;display:flex;justify-content:space-between;align-items:center;
+  }
+  details.cc-fold > summary::-webkit-details-marker{display:none}
+  details.cc-fold > summary::after{content:'▾';color:var(--muted);transition:transform .15s}
+  details.cc-fold[open] > summary::after{transform:rotate(180deg)}
+  details.cc-fold > .cc-fold-body{padding:0 18px 18px}
+</style>
+
+{% include 'manager/_nav.html' with page_title="Кабинет руководителя" %}
+
+{# ══════════ УВОЛЕННЫЕ С ОТКРЫТЫМИ ЗАДАЧАМИ ══════════ #}
+{% if dismissed_with_tasks %}
+<div class="card" style="border-left:4px solid var(--orange);
+     background:color-mix(in srgb,var(--orange) 6%,var(--card));margin-bottom:16px">
+  <h3 style="margin:0 0 10px;color:var(--orange)">
+    ⚠ Уволенные с открытыми задачами
+    <span style="color:var(--muted);font-weight:600;font-size:12px;margin-left:6px">
+      {{ dismissed_with_tasks|length }}
+    </span>
+  </h3>
+  <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+    Их нужно переназначить на других исполнителей.
+  </p>
+  <ul class="cc-list">
+    {% for item in dismissed_with_tasks %}
+    <li>
+      <span class="name">
+        <a href="{% url 'settings_user_detail' item.user.pk %}">
+          <b>{{ item.user.full_name }}</b>
+        </a>
+        <span class="meta"> · уволен {{ item.user.dismissed_at|date:'d.m.Y' }}</span>
+      </span>
+      <span class="cc-badge bad">{{ item.count }} зад.</span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{# ══════════ СРОЧНЫЕ НЕ ВЗЯТЫ 30+ МИНУТ ══════════ #}
+{% if stuck_urgent %}
+<div class="card" style="border-left:4px solid var(--red);
+     background:color-mix(in srgb,var(--red) 6%,var(--card));margin-bottom:16px">
+  <h3 style="margin:0 0 10px;color:var(--red)">
+    🔥 Срочные не взяты в работу 30+ минут
+    <span style="color:var(--muted);font-weight:600;font-size:12px;margin-left:6px">{{ stuck_urgent|length }}</span>
+  </h3>
+  <ul class="cc-list">
+    {% for item in stuck_urgent %}
+    <li>
+      <span class="name">
+        <a href="{% url 'task_detail' item.task.pk %}"><b>{{ item.task.title }}</b></a>
+        <span class="meta"> · {{ item.task.executor.full_name }}</span>
+      </span>
+      <span class="cc-badge bad" style="animation:urgentPulse 1.2s infinite">
+        🔥 {{ item.minutes }} мин
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{# ══════════ ДАЙДЖЕСТ ══════════ #}
+<div class="cc-digest">{{ digest }}</div>
+
+{# ══════════ ГЛАВНЫЕ ПЛИТКИ ══════════ #}
+<div class="cc-tiles">
+
+  <a class="cc-tile" href="{% url 'manager_reports' %}" title="Открыть отчёт за месяц">
+    <div class="lbl">Закрыто за месяц</div>
+    <div class="num">{{ closed_month }}</div>
+    <div class="sub">
+      {% if delta_cnt is not None %}
+      <span class="{% if delta_cnt > 0 %}delta-up{% elif delta_cnt < 0 %}delta-dn{% else %}delta-no{% endif %}">
+          {% if delta_cnt > 0 %}▲{% elif delta_cnt < 0 %}▼{% else %}—{% endif %} {{ delta_cnt }}%
+        </span>
+      к прошлому месяцу
+      {% else %}—{% endif %}
+    </div>
+    <span class="cc-more">Подробнее →</span>
+  </a>
+
+  <a class="cc-tile" href="{% url 'manager_reports' %}" title="Открыть отчёт за месяц">
+    <div class="lbl">План / факт, месяц</div>
+    <div class="num">{{ plan_month|floatformat:1 }} / {{ fact_month|floatformat:1 }}</div>
+    <div class="sub">
+      KPI:
+      <b class="{% if kpi_month and kpi_month > 110 %}delta-dn{% elif kpi_month and kpi_month < 90 %}delta-dn{% else %}delta-up{% endif %}">
+        {% if kpi_month %}{{ kpi_month }}%{% else %}—{% endif %}
+      </b>
+    </div>
+    <span class="cc-more">Подробнее →</span>
+  </a>
+
+  <a class="cc-tile {% if overdue_count %}has-overdue{% endif %}"
+     href="{% url 'manager_review' %}" title="Открыть очередь приёмки и просрочек">
+    <div class="lbl">Просрочено</div>
+    <div class="num {% if overdue_count %}delta-dn{% endif %}">{{ overdue_count }}</div>
+    <div class="sub">открытых с истёкшим сроком</div>
+    <span class="cc-more">Подробнее →</span>
+  </a>
+
+  <a class="cc-tile" href="{% url 'manager_review' %}" title="Открыть очередь приёмки">
+    <div class="lbl">В приёмке</div>
+    <div class="num">{{ review_count }}</div>
+    <div class="sub">на проверке и приёмке</div>
+    <span class="cc-more">Открыть →</span>
+  </a>
+
+  <a class="cc-tile" href="{% url 'manager_analytics' %}" title="Открыть динамику OTD">
+    <div class="lbl">OTD, 30 дней</div>
+    <div class="num">{% if otd is not None %}{{ otd }}%{% else %}—{% endif %}</div>
+    <div class="sub">доля закрытых в срок</div>
+    <span class="cc-more">Подробнее →</span>
+  </a>
+
+    <a class="cc-tile {% if load_overloaded %}has-overdue{% endif %}"
+       href="{% url 'manager_load' %}" title="Открыть загруженность отдела">
+        <div class="lbl">Перегружено</div>
+        <div class="num {% if load_overloaded %}delta-dn{% endif %}">{{ load_overloaded|default:0 }}</div>
+        <div class="sub">сотрудников с загрузкой &gt; 110%</div>
+        <span class="cc-more">Открыть →</span>
+    </a>
+
+    {% if scope == 'plant' or scope == 'admin' %}
+    <a class="cc-tile" href="{% url 'manager_plant' %}" title="Открыть свод по отделам">
+        <div class="lbl">Отделов в красной зоне</div>
+        <div class="num {% if plant_alert %}delta-dn{% endif %}">{{ plant_alert|default:0 }}</div>
+        <div class="sub">KPI &lt; 80% или OTD &lt; 70%</div>
+        <span class="cc-more">Подробнее →</span>
+    </a>
+    {% endif %}
+
+</div>
+
+{# ══════════ ТРЕБУЮТ РЕШЕНИЯ: просрочка этапа ══════════ #}
+{% if pending_shift %}
+<div class="card" id="pending-shift" style="border-left:4px solid var(--orange)">
+  <h3 style="margin:0 0 10px;color:var(--orange)">
+    ⚠ Требуют решения: просрочен предыдущий этап
+    <span style="color:var(--muted);font-weight:600;font-size:12px;margin-left:6px">{{ pending_shift|length }}</span>
+  </h3>
+  <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+    Предыдущий этап закрыт с опозданием. Выберите: сдвинуть сроки этого этапа или активировать как есть.
+  </p>
+
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+    <tr style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px">
+      <th style="text-align:left;padding:6px 8px">Этап</th>
+      <th style="text-align:left;padding:6px 8px">Просроченный</th>
+      <th style="text-align:left;padding:6px 8px">Исполнитель</th>
+      <th style="text-align:left;padding:6px 8px">Текущий срок</th>
+      <th style="text-align:right;padding:6px 8px">Решение</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for t in pending_shift %}
+    <tr>
+      <td style="padding:8px;border-top:1px solid var(--line);vertical-align:top">
+        <a href="{% url 'task_detail' t.pk %}"><b>{{ t.title }}</b></a>
+        {% if t.branch %}
+        <div style="color:var(--muted);font-size:12px">
+          {{ t.branch.name }}{% if t.branch.order %} · {{ t.branch.order.number }}{% endif %}
+        </div>
+        {% endif %}
+      </td>
+      <td style="padding:8px;border-top:1px solid var(--line);vertical-align:top">
+        {% if t.pending_shift_from_task %}
+        <a href="{% url 'task_detail' t.pending_shift_from_task.pk %}">
+          {{ t.pending_shift_from_task.title }}</a>
+        <div style="color:var(--red);font-size:12px;margin-top:2px">
+          +{{ t.pending_shift_days }} дн
+        </div>
+        {% else %}—{% endif %}
+      </td>
+      <td style="padding:8px;border-top:1px solid var(--line);vertical-align:top">
+        {{ t.executor.full_name }}
+      </td>
+      <td style="padding:8px;border-top:1px solid var(--line);vertical-align:top;white-space:nowrap">
+        {{ t.start_due|date:'d.m'|default:'—' }} → {{ t.due|date:'d.m.Y'|default:'—' }}
+      </td>
+      <td style="padding:8px;border-top:1px solid var(--line);text-align:right;white-space:nowrap">
+        <form method="post" action="{% url 'stage_shift_resolve' t.pk 'shift' %}"
+              style="display:inline;margin:0">
+          {% csrf_token %}
+          <button type="submit" class="btn green" style="padding:6px 12px;font-size:12px">
+            +{{ t.pending_shift_days }} дн
+          </button>
+        </form>
+        <form method="post" action="{% url 'stage_shift_resolve' t.pk 'skip' %}"
+              style="display:inline;margin:0"
+              data-confirm="Активировать без сдвига?">
+          {% csrf_token %}
+          <button type="submit" class="btn gray" style="padding:6px 12px;font-size:12px">
+            Без сдвига
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ══════════ ОЧЕРЕДЬ ПРИЁМКИ (всегда видна) ══════════ #}
+<div class="card" id="review">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h3 style="margin:0">Очередь приёмки</h3>
+    <a class="pill" href="{% url 'manager_review' %}">Все задачи →</a>
+  </div>
+
+  {% if review_queue %}
+  <table class="cc-review" style="width:100%;border-collapse:collapse;margin-top:10px">
+    <thead>
+    <tr style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px">
+      <th style="text-align:left">Задача</th>
+      <th style="text-align:left">Исполнитель</th>
+      <th style="text-align:left">Факт</th>
+      <th style="text-align:right">Решение</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for t in review_queue %}
+    <tr>
+      <td><a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a></td>
+      <td>{{ t.executor.full_name }}</td>
+      <td>{{ t.accumulated_hours|floatformat:2 }} ч</td>
+      <td style="text-align:right;white-space:nowrap">
+        <form method="post" action="{% url 'task_action' t.pk 'accept' %}">
+          {% csrf_token %}<button class="btn green" style="padding:6px 12px;font-size:13px">Принять</button>
+        </form>
+        <form method="post" action="{% url 'task_action' t.pk 'rework' %}">
+          {% csrf_token %}<button class="btn orange" style="padding:6px 12px;font-size:13px">На доработку</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="cc-empty" style="margin-top:10px">На приёмке ничего нет.</p>
+  {% endif %}
+</div>
+
+{# ══════════ СВОРАЧИВАЕМЫЙ БЛОК: ТРЕБУЕТ ВНИМАНИЯ ══════════ #}
+{% if critical_overdue or stale or anomalies %}
+<details class="cc-fold">
+  <summary>⚠ Требует внимания</summary>
+  <div class="cc-fold-body">
+
+    {% if critical_overdue %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>🔴 Просрочено более 7 дней <span class="em">топ-{{ critical_overdue|length }}</span></h3>
+      <ul class="cc-list">
+        {% for t in critical_overdue %}
+        <li>
+          <span class="name">
+            <a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+            <span class="meta"> · {{ t.executor.full_name }}</span>
+          </span>
+          <span class="cc-badge bad">{{ t.due|date:'d.m.Y' }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if stale %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>⏸ Без движения более 14 дней</h3>
+      <ul class="cc-list">
+        {% for s in stale %}
+        <li>
+          <span class="name">
+            <a href="{% url 'task_detail' s.task.pk %}">{{ s.task.title }}</a>
+            <span class="meta"> · {{ s.task.executor.full_name }}</span>
+          </span>
+          <span class="cc-badge warn">{{ s.idle_days }} дн</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if anomalies %}
+    <div class="cc-block">
+      <h3>⚠ Аномальные сеансы <span class="em">ночь / длинные</span></h3>
+      <ul class="cc-list">
+        {% for a in anomalies %}
+        <li>
+          <span class="name">
+            {{ a.executor.full_name }}
+            <span class="meta"> · {{ a.started_at|date:'d.m H:i' }}</span>
+          </span>
+          <span class="cc-badge warn">{{ a.duration_hours|floatformat:1 }} ч</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+  </div>
+</details>
+{% endif %}
+
+{# ══════════ СВОРАЧИВАЕМЫЙ БЛОК: ДЕТАЛИ И АНАЛИТИКА ══════════ #}
+{% if shift_violators or shift_initiators or top_overdue or top_rework or wasted.count or deferred_urgent or top_deps_overdue %}
+<details class="cc-fold">
+  <summary>📊 Детали и аналитика</summary>
+  <div class="cc-fold-body">
+
+    {% if shift_violators %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>🚧 Ломают план <span class="em">исполнители, 30 дн</span></h3>
+      <p style="color:var(--muted);font-size:12px;margin:0 0 8px">
+        Их срочные задачи сдвинули сроки других сотрудников.
+      </p>
+      <ul class="cc-list">
+        {% for v in shift_violators %}
+        <li>
+          <span class="name">
+            <a href="{% url 'manager_person' v.executor_pk %}">{{ v.executor_name }}</a>
+            <span class="meta"> · {{ v.department }}</span>
+          </span>
+          <span class="cc-badge bad">{{ v.shift_count }} · {{ v.total_days }} дн</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if shift_initiators %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>📣 Инициаторы срочных <span class="em">30 дн</span></h3>
+      <ul class="cc-list">
+        {% for u in shift_initiators %}
+        <li>
+          <span class="name">
+            <a href="{% url 'manager_person' u.user_pk %}">{{ u.user_name }}</a>
+            <span class="meta"> · {{ u.department }}</span>
+          </span>
+          <span class="cc-badge warn">{{ u.shift_count }} · {{ u.total_days }} дн</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if top_overdue %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>Топ-3 по просрочке</h3>
+      <ul class="cc-list">
+        {% for r in top_overdue %}
+        <li>
+          <span class="name">
+            <a href="{% url 'manager_person' r.user.pk %}">{{ r.user.full_name }}</a>
+          </span>
+          <span class="cc-badge bad">{{ r.cnt }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if top_rework %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>Топ-3 по возвратам <span class="em">месяц</span></h3>
+      <ul class="cc-list">
+        {% for r in top_rework %}
+        <li>
+          <span class="name">{{ r.task__executor__full_name }}</span>
+          <span class="cc-badge warn">{{ r.cnt }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if top_deps_overdue and scope == 'plant' or top_deps_overdue and scope == 'admin' %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>Топ-3 отдела по просрочке</h3>
+      <ul class="cc-list">
+        {% for d in top_deps_overdue %}
+        <li>
+          <span class="name">{{ d.dep }}</span>
+          <span class="cc-badge bad">{{ d.overdue }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if deferred_urgent %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>🔥 Невзятые срочные <span class="em">{{ deferred_urgent|length }}</span></h3>
+      <ul class="cc-list">
+        {% for t in deferred_urgent %}
+        <li>
+          <span class="name">
+            <a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+            <span class="meta"> · {{ t.executor.full_name }}</span>
+          </span>
+          <span class="cc-badge bad">🔥</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {# ── Ваш KPI и Средний цикл (переехали из плиток) ── #}
+    {% if my_kpi is not None or cycle_overall is not None %}
+    <div class="cc-block" style="margin-bottom:14px">
+      <h3>📌 Ключевые показатели</h3>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        {% if my_kpi is not None %}
+        <div>
+          <div style="color:var(--muted);font-size:12px;text-transform:uppercase;
+                      letter-spacing:.4px;font-weight:700">Ваш KPI, месяц</div>
+          <div style="font-size:28px;font-weight:800;
+                      {% if my_kpi >= 80 %}color:var(--green){% elif my_kpi < 50 %}color:var(--red){% else %}color:var(--orange){% endif %}">
+            {{ my_kpi }}%
+          </div>
+          <div style="color:var(--muted);font-size:11px;margin-top:2px">
+            40% KPI отдела + 30% OTD + 20% точность планирования + 10% личный
+          </div>
+        </div>
+        {% endif %}
+        {% if cycle_overall is not None %}
+        <div>
+          <div style="color:var(--muted);font-size:12px;text-transform:uppercase;
+                      letter-spacing:.4px;font-weight:700">Средний цикл</div>
+          <div style="font-size:28px;font-weight:800">{{ cycle_overall }}</div>
+          <div style="color:var(--muted);font-size:11px;margin-top:2px">
+            медиана, дней «создана → закрыта»
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if wasted.count %}
+    <div class="cc-block">
+      <h3>💸 Ресурс впустую <span class="em">отменено за месяц</span></h3>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px">
+        <div><span style="color:var(--muted);font-size:12px">Задач</span>
+          <div style="font-size:24px;font-weight:800">{{ wasted.count }}</div></div>
+        <div><span style="color:var(--muted);font-size:12px">Факт, ч</span>
+          <div style="font-size:24px;font-weight:800;color:var(--red)">{{ wasted.fact_hours }}</div></div>
+        <div><span style="color:var(--muted);font-size:12px">План, ч</span>
+          <div style="font-size:24px;font-weight:800;color:var(--muted)">{{ wasted.plan_hours }}</div></div>
+      </div>
+      <ul class="cc-list">
+        {% for t in wasted_list %}
+        <li>
+          <span class="name">
+            <a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+            <span class="meta"> · {{ t.executor.full_name }}</span>
+          </span>
+          <span class="cc-badge bad">{{ t.accumulated_hours|floatformat:1 }} ч</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+  </div>
+</details>
+{% endif %}
+
+{# ══════════ ГРАФИК 8 НЕДЕЛЬ ══════════ #}
+<div class="card">
+  <h3 style="margin:0 0 10px">Закрыто по неделям</h3>
+  <div class="cc-chart">
+    {% for w in weeks %}
+    <div class="col" style="height:{{ w.pct }}%" title="{{ w.label }}: {{ w.cnt }} задач, {{ w.hours }} ч"></div>
+    {% endfor %}
+  </div>
+  <div class="cc-chart-lbl">
+    {% for w in weeks %}<span>{{ w.label }}</span>{% endfor %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .set-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .set-tabs .pill{font-size:13px}
+    .set-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+</style>
+
+<h2 style="margin:0 0 14px">
+    {% if norm %}Норма · {{ norm.hours_per_day }} ч/день{% else %}Новая норма часов{% endif %}
+</h2>
+
+<p style="margin-bottom:14px"><a class="pill" href="{% url 'settings_norms' %}">← Все нормы</a></p>
+
+<div class="card" style="max-width:560px">
+    <form method="post">
+        {% csrf_token %}
+        <label>Часов в день</label>
+        <input name="hours_per_day" required value="{{ norm.hours_per_day|default:'8.0' }}"
+               placeholder="8.0">
+
+        <label>Примечание</label>
+        <input name="note" maxlength="200" value="{{ norm.note|default:'' }}"
+               placeholder="Например, для смены 8 ч">
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green">
+                {% if norm %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </p>
+    </form>
+</div>
+{% endblock %}

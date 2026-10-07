@@ -1,0 +1,75 @@
+<style>
+    .ml-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .ml-stat{padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+             background:var(--soft);font-size:12px;font-weight:700;
+             text-decoration:none;color:var(--ink)}
+    .ml-stat.on{border-color:var(--blue);background:var(--softblue);color:var(--blue)}
+    .ml-stat .n{color:var(--muted);margin-left:6px}
+
+    .ml-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .ml-tbl th,.ml-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .ml-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .ml-tbl tbody tr:hover{background:var(--soft)}
+    .ml-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ml-tbl a:hover{text-decoration:underline}
+    .ml-kind{display:inline-block;padding:2px 8px;border-radius:999px;
+             font-size:11px;font-weight:700;
+             background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;
+           margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <h3 style="margin:0 0 12px">Мои действия по задачам · {{ total }}</h3>
+
+    {% if kind_stats %}
+    <div class="ml-stats">
+        <a class="ml-stat {% if not kind %}on{% endif %}" href="?tab=logs">
+            Все <span class="n">{{ total }}</span>
+        </a>
+        {% for s in kind_stats %}
+        <a class="ml-stat {% if kind == s.code %}on{% endif %}" href="?tab=logs&kind={{ s.code }}">
+            {{ s.label }} <span class="n">{{ s.count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="overflow-x:auto">
+        <table class="ml-tbl">
+            <thead><tr><th>Когда</th><th>Событие</th><th>Задача</th><th>Комментарий</th></tr></thead>
+            <tbody>
+            {% for log in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ log.created_at|date:'d.m.Y H:i' }}</td>
+                <td><span class="ml-kind">{{ log.get_kind_display }}</span></td>
+                <td>
+                    {% if log.task %}
+                    <a href="/tasks/task/{{ log.task.pk }}/">#{{ log.task.pk }} · {{ log.task.title|truncatechars:45 }}</a>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--muted)">{{ log.comment|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px 0">
+                Записей нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?tab=logs{% if page_qs %}&{{ page_qs }}{% endif %}&page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?tab=logs{% if page_qs %}&{{ page_qs }}{% endif %}&page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

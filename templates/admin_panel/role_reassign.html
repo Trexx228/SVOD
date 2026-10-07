@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Переназначение роли · {{ role.name }}</h2>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_roles' %}">← Все роли</a>
+    <a class="pill" href="{% url 'settings_role_edit' role.pk %}">Редактировать роль</a>
+</div>
+
+<style>
+    .rr-list{list-style:none;padding:0;margin:0;max-height:280px;overflow:auto;
+             display:flex;flex-direction:column;gap:4px}
+    .rr-list li{padding:6px 10px;background:var(--soft);border:1px solid var(--line);
+                border-radius:10px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+    .rr-list .meta{color:var(--muted);font-size:12px}
+    .rr-warn{background:color-mix(in srgb,var(--orange) 12%,transparent);
+             border:1px solid color-mix(in srgb,var(--orange) 50%,var(--line));
+             border-radius:12px;padding:10px 14px;margin:12px 0;font-size:13px}
+</style>
+
+<div class="card" style="max-width:720px">
+    <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+        Все пользователи, у которых сейчас роль «<b>{{ role.name }}</b>»,
+        будут переведены на выбранную роль. Действие записывается в аудит.
+    </p>
+
+    <p>
+        Пользователей с этой ролью: <b>{{ users_count }}</b>
+        (активных: <b>{{ users_active_count }}</b>).
+    </p>
+
+    {% if users_preview %}
+    <ul class="rr-list">
+        {% for u in users_preview %}
+        <li>
+            <span>
+                <b>{{ u.full_name }}</b>
+                <span class="meta"> · {{ u.email }}{% if u.department %} · {{ u.department.name }}{% endif %}</span>
+            </span>
+            {% if not u.is_active %}<span class="meta">отключён</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if users_count > 20 %}
+    <p class="meta" style="margin:6px 0 0;color:var(--muted);font-size:12px">
+        …и ещё {{ users_count|add:"-20" }}.
+    </p>
+    {% endif %}
+    {% endif %}
+
+    {% if role.can_admin %}
+    <div class="rr-warn">
+        Роль «{{ role.name }}» даёт права администратора.
+        Переназначение на роль без админских прав возможно только если в системе
+        останется хотя бы один активный админ.
+    </div>
+    {% endif %}
+
+    <form method="post" style="margin-top:16px">
+        {% csrf_token %}
+
+        <label>Целевая роль</label>
+        <select name="target_role" required>
+            <option value="">— выберите —</option>
+            <option value="none">— без роли —</option>
+            {% for r in other_roles %}
+            <option value="{{ r.pk }}">
+                {{ r.name }}{% if r.can_admin %} · админ{% endif %}{% if r.can_manage %} · управление{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green"
+                    onclick="return confirm('Переназначить {{ users_count }} пользователей с роли «{{ role.name }}»?');">
+                Переназначить
+            </button>
+            <a class="pill" href="{% url 'settings_roles' %}" style="margin-left:8px">Отмена</a>
+        </p>
+    </form>
+</div>
+{% endblock %}

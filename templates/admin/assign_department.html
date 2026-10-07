@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Распределение по подразделению</h2>
+<p>Выбранных пользователей: {{ count }}</p>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="assign_department">
+    <input type="hidden" name="apply" value="1">
+    <input type="hidden" name="ids" value="{{ ids }}">
+    {% for pk in ids_list %}
+    <input type="hidden" name="_selected_action" value="{{ pk }}">
+    {% endfor %}
+
+    <p>
+        <label for="dep">Подразделение:</label>
+        <select name="department" id="dep">
+            <option value="">— без подразделения —</option>
+            {% for d in departments %}
+            <option value="{{ d.pk }}">{{ d.name }}</option>
+            {% endfor %}
+        </select>
+    </p>
+
+    <button type="submit" class="default">Назначить</button>
+    <a href="{% url 'admin:accounts_user_changelist' %}">Отмена</a>
+</form>
+{% endblock %}

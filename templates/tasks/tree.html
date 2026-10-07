@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+    .periodbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+    .periodbar input[type="date"]{width:auto;padding:6px 10px;font-size:13px}
+    .tree, .tree ul{list-style:none;margin:0;padding:0}
+    .tree ul{margin-left:22px;border-left:1px dashed var(--line);padding-left:14px}
+    .tree li{margin:8px 0}
+    .tnode{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+           border-left:3px solid var(--line);padding:8px 12px;border-radius:12px;background:var(--soft)}
+    li.over > .tnode{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 8%,var(--soft))}
+    li.review > .tnode{border-left-color:var(--blue);background:color-mix(in srgb,var(--blue) 8%,var(--soft))}
+    li.done > .tnode{border-left-color:var(--green)}
+    li.cancel > .tnode{opacity:.55}
+    li.collapsed > ul{display:none}
+</style>
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+    <h2 style="margin:0">Реестр задач</h2>
+    <a class="btn blue"
+       href="{% url 'tree_export' %}?f={{ flt }}&p={{ p }}&from={{ from_iso }}&to={{ to_iso }}">⬇ CSV для планёрки</a>
+</div>
+
+{% include 'tasks/_registry_tabs.html' %}
+
+<form method="get" class="periodbar">
+    <input type="hidden" name="f" value="{{ flt }}">
+    <div class="pills">
+        <button class="pill {% if p == '7' %}on{% endif %}" type="submit" name="p" value="7">7 дней</button>
+        <button class="pill {% if p == '30' %}on{% endif %}" type="submit" name="p" value="30">30 дней</button>
+        <button class="pill {% if p == '90' %}on{% endif %}" type="submit" name="p" value="90">Квартал</button>
+        <button class="pill {% if p == 'all' %}on{% endif %}" type="submit" name="p" value="all">Всё</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="date-cell" style="flex:0 1 210px;">
+            <input type="hidden" name="from" id="tree_from" value="{{ from_iso }}">
+            <input type="text" id="tree_from_view" class="date-input" placeholder="дд.мм.гггг"
+                   value="{{ from_view }}" autocomplete="off">
+            <button type="button" class="cal-btn" id="treefrombtn" title="Календарь">📅</button>
+            <div id="treefromcal" class="cal-pop" hidden>
+                <div class="cal-head">
+                    <button type="button" class="cal-btn" id="treefromprev">‹</button>
+                    <strong id="treefromtitle"></strong>
+                    <button type="button" class="cal-btn" id="treefromnext">›</button>
+                </div>
+                <div class="cal-week"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+                <div class="cal-grid" id="treefromgrid"></div>
+                <div class="cal-foot">
+                    <button type="button" class="cal-btn" id="treefromclear">Очистить</button>
+                    <button type="button" class="cal-btn" id="treefromtoday">Сегодня</button>
+                </div>
+            </div>
+        </div>
+        <span class="mx-1">—</span>
+        <div class="date-cell" style="flex:0 1 210px;">
+            <input type="hidden" name="to" id="tree_to" value="{{ to_iso }}">
+            <input type="text" id="tree_to_view" class="date-input" placeholder="дд.мм.гггг"
+                   value="{{ to_view }}" autocomplete="off">
+            <button type="button" class="cal-btn" id="treetobtn" title="Календарь">📅</button>
+            <div id="treetocal" class="cal-pop" hidden>
+                <div class="cal-head">
+                    <button type="button" class="cal-btn" id="treetoprev">‹</button>
+                    <strong id="treetotitle"></strong>
+                    <button type="button" class="cal-btn" id="treetonext">›</button>
+                </div>
+                <div class="cal-week"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+                <div class="cal-grid" id="treetogrid"></div>
+                <div class="cal-foot">
+                    <button type="button" class="cal-btn" id="treetoclear">Очистить</button>
+                    <button type="button" class="cal-btn" id="treetotoday">Сегодня</button>
+                </div>
+            </div>
+        </div>
+        <button class="pill" type="submit" name="p" value="custom">Применить период</button>
+    </div>
+</form>
+
+<div class="pills" style="margin-bottom:12px">
+    <a class="pill {% if flt == 'open' %}on{% endif %}" href="?p={{ p }}&f=open&from={{ from_iso }}&to={{ to_iso }}">Только открытые</a>
+    <a class="pill {% if flt == 'all' %}on{% endif %}" href="?p={{ p }}&f=all&from={{ from_iso }}&to={{ to_iso }}">Все</a>
+    <a class="pill {% if flt == 'mine' %}on{% endif %}" href="?p={{ p }}&f=mine&from={{ from_iso }}&to={{ to_iso }}">Мои</a>
+</div>
+
+<div class="card">
+    <ul class="tree">
+        {% for node in roots %}
+        {% include 'tasks/tree_node.html' with node=node %}
+        {% empty %}
+        <li style="color:var(--muted)">За выбранный период и фильтр задач нет.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<p style="color:var(--muted)">
+    Период считается по дате создания задач (колонка «Создана» добавлена в CSV). Ветви декомпозиции
+    до 6 уровней; клик по ▾ сворачивает ветку. Цвет кромки узла: красная — просрочка, синяя — на проверке,
+    зелёная — готово. У родительских задач показан прогресс ветки: закрыто подзадач и факт часов из плана.</p>
+{% endblock %}

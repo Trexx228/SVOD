@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Исторические отчёты" %}
+
+<form method="get" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    <select name="period" style="max-width:180px">
+        <option value="month" {% if period == 'month' %}selected{% endif %}>Месяц</option>
+        <option value="quarter" {% if period == 'quarter' %}selected{% endif %}>Квартал</option>
+        <option value="year" {% if period == 'year' %}selected{% endif %}>Год</option>
+    </select>
+    <select name="date" style="max-width:220px">
+        {% for d in available_dates %}
+        <option value="{{ d|date:'Y-m' }}" {% if selected_date == d|date:'Y-m' %}selected{% endif %}>
+        {{ d|date:'F Y' }}
+        </option>
+        {% empty %}
+        <option value="">Снимков пока нет</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn blue">Показать</button>
+</form>
+
+<form method="post" action="{% url 'capture_timeline' %}" style="margin-bottom:18px">
+    {% csrf_token %}
+    <button type="submit" class="btn green">📸 Снимок сейчас</button>
+    <span style="color:var(--muted);font-size:13px;margin-left:10px">
+    Фиксирует текущее состояние задач на 1-е число месяца.
+  </span>
+</form>
+
+{% if snapshots %}
+{% if period == 'month' %}
+<h2 style="font-size:16px">Срез за {{ month_label }}</h2>
+<div class="card" style="padding:0">
+    <table>
+        <thead><tr><th>Сотрудник</th><th>Задач</th><th>Закрыто</th><th>План, ч</th></tr></thead>
+        <tbody>
+        {% for name, s in by_executor.items %}
+        <tr><td>{{ name }}</td><td>{{ s.tasks }}</td><td>{{ s.done }}</td><td>{{ s.plan|floatformat:1 }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif period == 'year' %}
+<h2 style="font-size:16px">Год {{ year }}</h2>
+<div class="card" style="padding:0">
+    <table>
+        <thead><tr><th>Месяц</th><th>Задач</th><th>Закрыто</th><th>План, ч</th></tr></thead>
+        <tbody>
+        {% for m, s in by_month.items %}
+        <tr><td>{{ m }}</td><td>{{ s.tasks }}</td><td>{{ s.done }}</td><td>{{ s.plan|floatformat:1 }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<h2 style="font-size:16px">Квартал {{ quarter }} · {{ year }}</h2>
+<div class="card" style="padding:0">
+    <table>
+        <thead><tr><th>Месяц</th><th>Задач</th><th>Закрыто</th><th>План, ч</th></tr></thead>
+        <tbody>
+        {% for m, s in by_month.items %}
+        <tr><td>{{ m }}</td><td>{{ s.tasks }}</td><td>{{ s.done }}</td><td>{{ s.plan|floatformat:1 }}</td></tr>
+        {% empty %}
+        <tr><td colspan="4" style="color:var(--muted);text-align:center">Снимков за квартал нет.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% elif selected_date %}
+<div class="alert alert-info">За выбранный период снимков нет.</div>
+{% else %}
+<div class="alert alert-info">
+    Выберите период и дату снимка. Снимки создаются кнопкой «📸 Снимок сейчас».
+</div>
+{% endif %}
+{% endblock %}

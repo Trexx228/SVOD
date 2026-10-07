@@ -1,0 +1,95 @@
+# ─── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ─── Виртуальные окружения ─────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Django ────────────────────────────────────────────────
+*.log
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+*.sqlite3-journal
+
+# Локальная dev-метка
+.dev-mode
+
+# Собранная статика
+staticfiles/
+collected_static/
+media/
+/media/
+
+# ─── Бэкапы и дампы ────────────────────────────────────────
+backups/
+/backups/
+/dumps/
+*.sql
+*.dump
+
+# ─── Логи ──────────────────────────────────────────────────
+logs/
+/logs/
+*.log
+logs/scheduler_state.json
+
+# ─── Окружение и секреты ───────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+
+# ─── Артефакты gitlab-runner ───────────────────────────────
+state.yml
+.gitlab-ci-local/
+
+# ─── IDE ───────────────────────────────────────────────────
+.idea/
+.vscode/
+!.vscode/settings.json
+*.iml
+*.ipr
+*.iws
+out/
+
+# ─── ОС ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# ─── Прочее ────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+node_modules/
+.npm/
+.pip-cache/
+
+#        / dev-       
+_Guides/
+     .md
+run_escalate.bat
+templates/Dockerfile
+
+# Личное / dev-заметки
+_Guides/
+Планы.md
+run_escalate.bat
+templates/Dockerfile

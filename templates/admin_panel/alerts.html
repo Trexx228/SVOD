@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .al-card{border-radius:14px;padding:14px 16px;margin-bottom:10px;
+             border:1px solid var(--line);background:var(--soft);
+             display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    .al-card.info{border-color:color-mix(in srgb,var(--blue) 40%,var(--line))}
+    .al-card.warn{border-color:color-mix(in srgb,var(--orange) 50%,var(--line));
+                  background:color-mix(in srgb,var(--orange) 8%,var(--soft))}
+    .al-card.danger{border-color:color-mix(in srgb,var(--red) 55%,var(--line));
+                    background:color-mix(in srgb,var(--red) 8%,var(--soft))}
+    .al-card.read{opacity:.55}
+    .al-card .t{font-weight:800;font-size:15px;margin-bottom:4px}
+    .al-card .m{color:var(--muted);font-size:13px;margin-bottom:6px}
+    .al-card .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+    .al-actions{display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+    .al-sev{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .al-sev.info{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .al-sev.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .al-sev.danger{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">
+            Уведомления · {{ total }}
+            {% if unseen_count %}<span class="pill" style="margin-left:8px;color:var(--red)">новых: {{ unseen_count }}</span>{% endif %}
+        </h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="pill {% if not show %}on{% endif %}" href="{% url 'settings_alerts' %}">Все</a>
+            <a class="pill" href="{% url 'settings_alert_settings' %}">⚙ Настройки</a>
+            <a class="pill {% if show == 'unseen' %}on{% endif %}" href="?show=unseen">Только новые</a>
+            {% if unseen_count %}
+            <form method="post" action="{% url 'settings_alerts_mark_all_seen' %}" style="margin:0">
+                {% csrf_token %}
+                <button type="submit" class="btn blue">Прочитать все</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% for a in page %}
+    <div class="al-card {{ a.severity }} {% if a.seen %}read{% endif %}">
+        <div style="flex:1 1 320px">
+            <div class="t">{{ a.title }}</div>
+            <div class="m">{{ a.message }}</div>
+            <div class="k">
+                {{ a.get_kind_display }} ·
+                срабатываний: {{ a.count }} ·
+                последнее: {{ a.last_seen_at|date:'d.m.Y H:i' }}
+                {% if a.seen %} · прочитано{% endif %}
+            </div>
+        </div>
+        <div class="al-actions">
+            <span class="al-sev {{ a.severity }}">{{ a.get_severity_display }}</span>
+            {% if a.url %}<a class="pill" href="{{ a.url }}">Открыть</a>{% endif %}
+            {% if not a.seen %}
+            <form method="post" action="{% url 'settings_alerts_mark_seen' a.pk %}" style="margin:0">
+                {% csrf_token %}
+                <button type="submit" class="btn gray" style="padding:6px 12px;font-size:13px">Прочитано</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;color:var(--muted);padding:30px 0">
+        {% if show == 'unseen' %}Новых уведомлений нет.{% else %}Уведомлений пока нет.{% endif %}
+    </div>
+    {% endfor %}
+
+    {% if page.paginator.num_pages > 1 %}
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+        {% if page.has_previous %}<a class="pill" href="?page={{ page.previous_page_number }}{% if show %}&show={{ show }}{% endif %}">← Назад</a>{% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="pill" href="?page={{ page.next_page_number }}{% if show %}&show={{ show }}{% endif %}">Вперёд →</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

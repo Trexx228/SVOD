@@ -1,0 +1,879 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+  .tf-wrap{max-width:860px}
+
+  /* Чипы типовых */
+  .tf-types{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+  .tf-chip{
+      border:1px solid var(--input);background:var(--card);color:var(--ink);
+      border-radius:999px;padding:6px 14px;font:inherit;font-weight:600;
+      font-size:13px;cursor:pointer;transition:all .12s;
+  }
+  .tf-chip:hover{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+  .tf-chip.on{background:var(--softblue);color:var(--blue);border-color:var(--blue);font-weight:700}
+
+  /* Приоритет */
+  .tf-prio{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 14px}
+  .tf-prio button{
+      flex:1 1 100px;border:2px solid var(--input);background:var(--card);
+      color:var(--ink);border-radius:12px;padding:10px 8px;font:inherit;
+      font-weight:700;font-size:13px;cursor:pointer;transition:all .12s;
+      text-align:center;
+  }
+  .tf-prio button:hover{background:var(--soft)}
+  .tf-prio button.on{color:#fff;border-color:transparent}
+  .tf-prio button[data-v="low"].on{background:var(--gray)}
+  .tf-prio button[data-v="medium"].on{background:var(--blue)}
+  .tf-prio button[data-v="high"].on{background:var(--orange)}
+  .tf-prio button[data-v="urgent"].on{background:var(--red)}
+
+  /* Заказ */
+  .tf-order-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .tf-order-row select{flex:1 1 340px}
+  .tf-order-row label{
+      display:flex;gap:8px;align-items:center;margin:0;cursor:pointer;
+      font-size:13px;font-weight:600;
+  }
+  .tf-order-row label input{width:auto;margin:0}
+  .tf-order-wrap.blocked select{display:none}
+
+  /* Срок */
+  .tf-due{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
+  .tf-due button{
+      border:1px solid var(--input);background:var(--card);color:var(--ink);
+      border-radius:10px;padding:9px 14px;font:inherit;font-weight:700;
+      font-size:13px;cursor:pointer;transition:all .12s;
+  }
+  .tf-due button:hover{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+  .tf-due button.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+  .tf-due .due-display{
+      margin-left:auto;font-size:13px;color:var(--muted);font-weight:700;
+  }
+  .tf-due .due-display b{color:var(--ink)}
+
+  /* Исполнители */
+  .tf-exec{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 10px}
+  .tf-exec button{
+      border:1px solid var(--input);background:var(--card);color:var(--ink);
+      border-radius:999px;padding:7px 14px;font:inherit;font-weight:600;
+      font-size:13px;cursor:pointer;transition:all .12s;
+      display:inline-flex;align-items:center;gap:6px;
+  }
+  .tf-exec button:hover{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+  .tf-exec button.on{background:var(--softblue);color:var(--blue);border-color:var(--blue);font-weight:700}
+  .tf-exec button[data-dept]{border-radius:10px}
+  .tf-exec .cnt{
+      background:var(--blue);color:#fff;border-radius:999px;
+      font-size:11px;font-weight:800;padding:1px 7px;min-width:18px;text-align:center;
+  }
+  .tf-exec .cnt:empty{display:none}
+
+  /* Панель выбора сотрудников */
+  .tf-exec-panel{
+      background:var(--soft);border:1px solid var(--line);
+      border-radius:14px;padding:12px 14px;margin-bottom:14px;
+  }
+  .tf-exec-panel .head{
+      display:flex;justify-content:space-between;align-items:center;
+      gap:10px;margin-bottom:8px;flex-wrap:wrap;
+  }
+  .tf-exec-panel h4{margin:0;font-size:13px;color:var(--muted);
+                    text-transform:uppercase;letter-spacing:.4px}
+  .tf-exec-search{width:100%;margin-bottom:8px;padding:8px 12px;font-size:13px}
+  .tf-exec-list{
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+      gap:4px;max-height:240px;overflow:auto;
+  }
+  .tf-exec-list label{
+      display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:8px;
+      font-size:13px;font-weight:500;cursor:pointer;margin:0;
+  }
+  .tf-exec-list label:hover{background:var(--softblue)}
+  .tf-exec-list label.on{background:var(--softblue);color:var(--blue);font-weight:700}
+  .tf-exec-list label .dept{color:var(--muted);font-size:11px;margin-left:auto}
+  .tf-exec-list input{width:auto;margin:0}
+
+  /* Время */
+  .tf-time{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 6px}
+  .tf-time button{
+      border:1px solid var(--input);background:var(--card);color:var(--ink);
+      border-radius:10px;padding:9px 14px;font:inherit;font-weight:700;
+      font-size:13px;cursor:pointer;transition:all .12s;
+  }
+  .tf-time button:hover{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+  .tf-time button.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+  .tf-time input[name="plan"]{
+      width:110px;margin-left:auto;padding:9px 12px;font-weight:700;text-align:center;
+  }
+  .tf-time-hint{
+      color:var(--muted);font-size:12px;margin:0 0 4px;
+  }
+
+  /* Дополнительно */
+  .tf-more{
+      margin-top:18px;background:var(--soft);border:1px dashed var(--input);
+      border-radius:14px;padding:12px 16px;
+  }
+  .tf-more summary{
+      cursor:pointer;font-weight:700;color:var(--blue);list-style:none;
+      display:flex;align-items:center;gap:6px;
+  }
+  .tf-more summary::-webkit-details-marker{display:none}
+  .tf-more summary::before{content:'▸';transition:transform .15s}
+  .tf-more[open] summary::before{transform:rotate(90deg)}
+  .tf-more[open] summary{margin-bottom:12px}
+
+  .tf-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+
+  .tf-hint{
+      color:var(--muted);font-size:12px;margin:6px 0 0;line-height:1.5;
+  }
+</style>
+{{ users_data|json_script:"users-data" }}
+{{ depts_data|json_script:"depts-data" }}
+{{ norm|json_script:"norm-data" }}
+{{ branches_by_order|json_script:"branches-data" }}
+
+
+<div class="card tf-wrap">
+  <h2 style="margin:0 0 4px">
+    {% if parent_task %}Подзадача{% else %}Новая задача{% endif %}
+  </h2>
+  <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+    {% if parent_task %}
+    Родительская:
+    <a href="{% url 'task_detail' parent_task.pk %}">{{ parent_task.title }}</a>
+    {% else %}
+    Заполните главное — детали потом.
+    {% endif %}
+  </p>
+
+  <form method="post" enctype="multipart/form-data" id="tf-form">
+    {% csrf_token %}
+    {% if parent_task %}<input type="hidden" name="parent" value="{{ parent_task.pk }}">{% endif %}
+
+    {# ─── Типовая ─── #}
+    {% if frequent_types %}
+    <label>Быстрый выбор</label>
+    <div class="tf-types" id="tf-types">
+      {% for tp in frequent_types %}
+      <button type="button" class="tf-chip"
+              data-type="{{ tp.pk }}"
+              data-plan="{{ tp.plan_hours }}"
+              data-days="{{ tp.due_days }}">{{ tp.name }}</button>
+      {% endfor %}
+      <button type="button" class="tf-chip" data-more-types>Другая →</button>
+    </div>
+    {% endif %}
+
+    <div id="tf-types-more" hidden style="margin-bottom:14px">
+      <select id="tf-type-select">
+        <option value="">— не типовая —</option>
+        {% for tp in types %}
+        <option value="{{ tp.pk }}"
+                data-plan="{{ tp.plan_hours }}"
+                data-days="{{ tp.due_days }}">{{ tp.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <input type="hidden" name="type" id="tf-type-value" value="">
+
+    {# ─── Название ─── #}
+    <label>Что нужно сделать</label>
+    <input name="title" required maxlength="300" autofocus
+           placeholder="Например, Подготовить чертеж корпуса">
+
+    {# ─── Приоритет ─── #}
+    <label>Приоритет</label>
+    <div class="tf-prio" id="tf-prio">
+      <button type="button" data-v="low">Низкий</button>
+      <button type="button" data-v="medium" class="on">Средний</button>
+      <button type="button" data-v="high">Высокий</button>
+      <button type="button" data-v="urgent">🔥 Срочно</button>
+    </div>
+    <input type="hidden" name="priority" id="tf-prio-value" value="medium">
+    <p id="urgent-hint" hidden style="color:var(--red);font-size:12px;margin:-8px 0 14px">
+      🔥 Срочная задача сдвинет сроки остальных открытых задач исполнителя.
+      Сдвиг согласуется с руководством отдела.
+    </p>
+    <div id="urgent-reason-wrap" hidden style="margin:-6px 0 14px">
+      <label for="urgent_reason" style="color:var(--red);font-weight:700">
+        Обоснование срочности <span style="color:var(--muted);font-weight:400">(обязательно)</span>
+      </label>
+      <textarea name="urgent_reason" id="urgent_reason" rows="2" maxlength="500"
+                placeholder="Например: заказчик ОАО Ромашка требует пуск до 15.10, простой линии 200 000 ₽/сутки"></textarea>
+    </div>
+
+    {# ─── Заказ + этап ─── #}
+    <label>Заказ</label>
+    {% if parent_task and parent_task.order %}
+    <input type="hidden" name="order" value="{{ parent_task.order.pk }}">
+    <div class="tf-order-row">
+      <div style="background:var(--soft);border:1px solid var(--line);
+                            border-radius:12px;padding:10px 14px;font-size:14px;flex:1 1 340px">
+        <b>{{ parent_task.order.number }}</b> · {{ parent_task.order.product }}
+      </div>
+    </div>
+    <p class="tf-hint">Унаследован от родительской задачи. Изменить нельзя.</p>
+    {% elif parent_task and parent_task.outside_order %}
+    <input type="hidden" name="outside_order" value="1">
+    <div style="background:var(--soft);border:1px solid var(--line);
+                        border-radius:12px;padding:10px 14px;font-size:14px;color:var(--muted)">
+      Вне заказа — как у родительской задачи
+    </div>
+    {% else %}
+    <div class="tf-order-row" id="tf-order-wrap">
+      <select name="order" id="tf-order-select">
+        <option value="">— выберите заказ —</option>
+        {% for o in orders %}
+        <option value="{{ o.pk }}"
+                {% if initial_order == o.pk|stringformat:'s' %}selected{% endif %}>
+        {{ o.number }} · {{ o.product }}
+        </option>
+        {% endfor %}
+      </select>
+      <label>
+        <input type="checkbox" name="outside_order" value="1" id="tf-outside-order">
+        Не касается заказа
+      </label>
+    </div>
+    <p class="tf-hint">
+      Укажите заказ или отметьте «Не касается заказа», если это
+      внутренняя задача (совещание, обучение, общая работа).
+    </p>
+
+    {# ─── Этап (ветка заказа) ─── #}
+    <div id="tf-branch-wrap" hidden style="margin-top:12px">
+      <label style="margin-top:0">Этап заказа <span style="color:var(--muted);font-weight:400">(опционально)</span></label>
+      <div class="tf-order-row">
+        <select name="branch" id="tf-branch-select">
+          <option value="">— вне этапа —</option>
+        </select>
+        <label>
+          <input type="checkbox" name="outside_chain" value="1" id="tf-outside-chain">
+          Вне цепочки (параллельно)
+        </label>
+      </div>
+      <p class="tf-hint" id="tf-branch-hint">
+        Если выбрать этап — задача встанет в конец цепочки и активируется автоматически
+        после закрытия предыдущего.
+      </p>
+    </div>
+    {% endif %}
+
+    {# ─── Срок ─── #}
+    <label style="margin-top:16px">Когда нужно сдать</label>
+    <div class="tf-due" id="tf-due">
+      <button type="button" data-days="0">Сегодня</button>
+      <button type="button" data-days="1">Завтра</button>
+      <button type="button" data-days="2">Послезавтра</button>
+      <button type="button" data-days="7" class="on">Через неделю</button>
+      <button type="button" data-custom>📅 Своя дата</button>
+      <span class="due-display">срок: <b id="tf-due-display">—</b></span>
+    </div>
+
+    <input type="hidden" id="due" name="due">
+    <input type="hidden" id="start_due" name="start_due">
+    <input type="hidden" id="external_due" name="external_due"
+           value="{{ initial_external_due|default:'' }}">
+
+    <div id="tf-due-custom" hidden style="margin-bottom:14px">
+      <div class="date-field" style="position:relative;max-width:240px">
+        <input type="text" id="due_view" readonly
+               placeholder="ДД.ММ.ГГГГ"
+               style="padding-right:44px;cursor:pointer">
+        <button type="button" id="calbtn" class="cal-btn"
+                style="position:absolute;right:8px;top:50%;transform:translateY(-50%)">📅</button>
+        <div id="cal" class="cal-pop" hidden
+             style="position:absolute;top:calc(100% + 4px);left:0;z-index:40;
+                            width:240px;padding:10px">
+          <div class="cal-head">
+            <button type="button" id="prev">‹</button>
+            <b id="caltitle"></b>
+            <button type="button" id="next">›</button>
+          </div>
+          <div class="cal-week">
+            <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span>
+            <span>Пт</span><span>Сб</span><span>Вс</span>
+          </div>
+          <div class="cal-grid" id="calgrid"></div>
+          <div class="cal-foot">
+            <button type="button" id="calclear">Очистить</button>
+            <button type="button" id="caltoday">Сегодня</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ─── Исполнители ─── #}
+    <label>Кому поручить</label>
+    <div class="tf-exec" id="tf-exec">
+      <button type="button" data-self>👤 Я (себе)</button>
+      {% for d in departments %}
+      <button type="button" data-dept="{{ d.pk }}">
+        {{ d.name }} <span class="cnt cnt-dept" data-dept="{{ d.pk }}"></span>
+      </button>
+      {% endfor %}
+      <button type="button" data-toggle-all>Все сотрудники ▾ <span class="cnt cnt-all"></span></button>
+    </div>
+
+    {# Панель выбора сотрудников #}
+    <div class="tf-exec-panel" id="tf-exec-panel" hidden>
+      <div class="head">
+        <h4 id="tf-exec-panel-title">Выберите исполнителей</h4>
+        <button type="button" id="tf-exec-clear-dept" hidden
+                class="pill" style="font-size:12px">Показать всех</button>
+      </div>
+      <input type="search" class="tf-exec-search"
+             placeholder="Поиск по имени или отделу"
+             id="tf-exec-search">
+      <div class="tf-exec-list" id="tf-exec-list">
+        {% for u in users_data %}
+        <label data-dept="{{ u.dept|default:'' }}" data-id="{{ u.id }}">
+          <input type="checkbox" value="{{ u.id }}">
+          <span>{{ u.name }}</span>
+          {% if u.dept %}
+          <span class="dept">{{ u.dept }}</span>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin:8px 0 0">
+        Один человек — обычная задача. Несколько — групповая с подзадачей на каждого.
+      </p>
+    </div>
+
+    <input type="hidden" name="exec_ids" id="exec_ids" value="{{ initial_exec_ids }}">
+
+    {# ─── Трудозатраты ─── #}
+    <label>Оценка времени</label>
+    <div class="tf-time" id="tf-time">
+      <span id="tf-time-presets" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+      <input type="text" name="plan" id="tf-plan" inputmode="decimal" value="2">
+    </div>
+    <p class="tf-hint">
+      Можно ввести «30 мин», «1:30», «8». Пресеты подстраиваются под срок.
+    </p>
+
+    <input type="hidden" name="scale" id="tf-scale" value="s">
+    <input type="hidden" name="kind" value="{{ initial_kind|default:'work' }}">
+
+    {# ─── Дополнительно ─── #}
+    <details class="tf-more">
+      <summary>Дополнительно</summary>
+
+      <label>Формальный срок для заказчика (опционально)</label>
+      <div class="date-field" style="position:relative;max-width:240px">
+        <input type="text" id="external_due_view" readonly
+               placeholder="ДД.ММ.ГГГГ"
+               style="padding-right:44px;cursor:pointer">
+        <button type="button" id="extcalbtn" class="cal-btn"
+                style="position:absolute;right:8px;top:50%;transform:translateY(-50%)">📅</button>
+        <div id="extcal" class="cal-pop" hidden
+             style="position:absolute;top:calc(100% + 4px);left:0;z-index:40;
+                            width:240px;padding:10px">
+          <div class="cal-head">
+            <button type="button" id="extprev">‹</button>
+            <b id="extcaltitle"></b>
+            <button type="button" id="extnext">›</button>
+          </div>
+          <div class="cal-week">
+            <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span>
+            <span>Пт</span><span>Сб</span><span>Вс</span>
+          </div>
+          <div class="cal-grid" id="extcalgrid"></div>
+          <div class="cal-foot">
+            <button type="button" id="extcalclear">Очистить</button>
+            <button type="button" id="extcaltoday">Сегодня</button>
+          </div>
+        </div>
+      </div>
+      <p class="tf-hint">
+        Обещание заказчику. Видно постановщику, руководителю отдела
+        исполнителя и администратору. Исполнитель его не видит —
+        ему важен только дедлайн выше.
+      </p>
+
+      <label>Срок начала (опционально)</label>
+      <div class="date-field" style="position:relative;max-width:240px">
+        <input type="text" id="start_due_view" readonly
+               placeholder="ДД.ММ.ГГГГ"
+               style="padding-right:44px;cursor:pointer">
+        <button type="button" id="startcalbtn" class="cal-btn"
+                style="position:absolute;right:8px;top:50%;transform:translateY(-50%)">📅</button>
+        <div id="startcal" class="cal-pop" hidden
+             style="position:absolute;top:calc(100% + 4px);left:0;z-index:40;
+                            width:240px;padding:10px">
+          <div class="cal-head">
+            <button type="button" id="startprev">‹</button>
+            <b id="startcaltitle"></b>
+            <button type="button" id="startnext">›</button>
+          </div>
+          <div class="cal-week">
+            <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span>
+            <span>Пт</span><span>Сб</span><span>Вс</span>
+          </div>
+          <div class="cal-grid" id="startcalgrid"></div>
+          <div class="cal-foot">
+            <button type="button" id="startcalclear">Очистить</button>
+            <button type="button" id="startcaltoday">Сегодня</button>
+          </div>
+        </div>
+      </div>
+
+      <label>Вид работы</label>
+      <select name="kind2" id="tf-kind">
+        {% for value, label in kinds %}
+        <option value="{{ value }}" {% if value == initial_kind %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Что считается результатом</label>
+      <textarea name="body" rows="4"
+                placeholder="Опишите результат: файл чертежа в DWG, спецификация в Excel, скан акта, фотография с места… &#10;&#10;Помимо самой работы, может потребоваться фактура: документ, ссылка, фото, чек. Укажите, что именно приложить к задаче."></textarea>
+      <p class="tf-hint">
+        💡 Чем конкретнее результат — тем проще проверить и принять задачу.
+        Если для выполнения нужны материалы или фактура (счёт, чек, акт) —
+        перечислите их здесь.
+      </p>
+
+      <label>Вложения</label>
+      <div id="attach-box" class="attach-zone"></div>
+      <input type="hidden" name="attach_ids" id="attach_ids" value="">
+      <label style="display:inline-block;margin:6px 0 0;cursor:pointer">📎 Прикрепить файлы
+        <input type="file" id="attach-input" multiple style="display:none"
+               accept=".png,.jpg,.jpeg,.gif,.webp,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+      </label>
+    </details>
+
+    <div class="tf-actions">
+      <button type="submit" class="btn green" style="min-width:200px">Создать</button>
+      <a class="btn gray" href="{% url 'dashboard' %}">Отмена</a>
+    </div>
+  </form>
+</div>
+
+<script src="{% static 'js/calendar.js' %}"></script>
+<script>
+  (function(){
+      'use strict';
+
+      // ────── Общие переменные ──────
+      var currentDueDays = 7;
+      var lastDueValue = null;
+      var userTouchedPlan = false;
+
+      var $  = function(s){ return document.querySelector(s); };
+      var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+      // ────── Заказ + этап ──────
+      var outsideCb    = $('#tf-outside-order');
+      var orderSelect  = $('#tf-order-select');
+      var orderWrap    = $('#tf-order-wrap');
+      var branchWrap   = $('#tf-branch-wrap');
+      var branchSelect = $('#tf-branch-select');
+      var outsideChain = $('#tf-outside-chain');
+
+      var branchesData = {};
+      (function(){
+          var el = document.getElementById('branches-data');
+          if (el) {
+              try { branchesData = JSON.parse(el.textContent); } catch (e) {}
+          }
+      })();
+
+      function refreshBranchOptions(){
+          if (!branchWrap || !branchSelect) return;
+          var orderId = orderSelect ? orderSelect.value : '';
+          branchSelect.innerHTML = '<option value="">— вне этапа —</option>';
+
+          if (!orderId || !branchesData[orderId] || !branchesData[orderId].length) {
+              branchWrap.hidden = true;
+              return;
+          }
+          branchesData[orderId].forEach(function(b){
+              var opt = document.createElement('option');
+              opt.value = b.pk;
+              opt.textContent = b.name;
+              branchSelect.appendChild(opt);
+          });
+          branchWrap.hidden = false;
+      }
+
+      if (orderSelect) {
+          orderSelect.addEventListener('change', function(){
+              refreshBranchOptions();
+              if (branchWrap) branchWrap.hidden = !orderSelect.value;
+          });
+          // первичный рендер
+          refreshBranchOptions();
+      }
+
+      if (outsideCb && orderWrap) {
+          outsideCb.addEventListener('change', function(){
+              orderWrap.classList.toggle('blocked', outsideCb.checked);
+              if (outsideCb.checked && orderSelect) orderSelect.value = '';
+              if (branchWrap) branchWrap.hidden = outsideCb.checked || !orderSelect || !orderSelect.value;
+          });
+      }
+
+      // ────── Типовая задача ──────
+      var typeValue  = $('#tf-type-value');
+      var typeSelect = $('#tf-type-select');
+      var typesMore  = $('#tf-types-more');
+      var planInput  = $('#tf-plan');
+
+      $$('#tf-types .tf-chip').forEach(function(btn){
+          btn.addEventListener('click', function(){
+              if (btn.hasAttribute('data-more-types')) {
+                  typesMore.hidden = !typesMore.hidden;
+                  return;
+              }
+              $$('#tf-types .tf-chip').forEach(function(b){ b.classList.remove('on'); });
+              btn.classList.add('on');
+              typeValue.value = btn.dataset.type || '';
+              if (typeSelect) typeSelect.value = btn.dataset.type || '';
+              if (btn.dataset.plan) planInput.value = btn.dataset.plan;
+              if (btn.dataset.days) {
+                  applyDueDays(parseInt(btn.dataset.days, 10));
+                  $$('#tf-due button').forEach(function(b){ b.classList.remove('on'); });
+                  var days = parseInt(btn.dataset.days, 10);
+                  var match = document.querySelector('#tf-due button[data-days="' + days + '"]');
+                  if (match) match.classList.add('on');
+              }
+          });
+      });
+
+      if (typeSelect) {
+          typeSelect.addEventListener('change', function(){
+              var opt = typeSelect.selectedOptions[0];
+              typeValue.value = typeSelect.value;
+              if (!opt) return;
+              if (opt.dataset.plan) planInput.value = opt.dataset.plan;
+              if (opt.dataset.days) applyDueDays(parseInt(opt.dataset.days, 10));
+          });
+      }
+
+      // ────── Приоритет ──────
+      var prioInput  = $('#tf-prio-value');
+      var urgentHint = $('#urgent-hint');
+      var urgentReasonWrap = $('#urgent-reason-wrap');
+      $$('#tf-prio button').forEach(function(btn){
+          btn.addEventListener('click', function(){
+              $$('#tf-prio button').forEach(function(b){ b.classList.remove('on'); });
+              btn.classList.add('on');
+              prioInput.value = btn.dataset.v;
+              var isUrgent = btn.dataset.v === 'urgent';
+              urgentHint.hidden = !isUrgent;
+              if (urgentReasonWrap) urgentReasonWrap.hidden = !isUrgent;
+          });
+      });
+
+      // ────── Срок ──────
+      var dueHidden  = $('#due');
+      var dueView    = $('#due_view');
+      var dueCustom  = $('#tf-due-custom');
+      var dueDisplay = $('#tf-due-display');
+
+      function isoDate(d){
+          var y = d.getFullYear();
+          var m = String(d.getMonth() + 1).padStart(2, '0');
+          var day = String(d.getDate()).padStart(2, '0');
+          return y + '-' + m + '-' + day;
+      }
+      function ruDate(d){
+          var y = d.getFullYear();
+          var m = String(d.getMonth() + 1).padStart(2, '0');
+          var day = String(d.getDate()).padStart(2, '0');
+          return day + '.' + m + '.' + y;
+      }
+
+      function applyDueDays(days){
+          currentDueDays = days;
+          var d = new Date();
+          d.setDate(d.getDate() + days);
+          dueHidden.value = isoDate(d);
+          dueView.value = ruDate(d);
+          dueDisplay.textContent = ruDate(d);
+          updateTimePresets(days);
+      }
+
+      function syncDueDisplay(){
+          if (dueHidden.value === lastDueValue) return;
+          lastDueValue = dueHidden.value;
+
+          if (!dueHidden.value) { dueDisplay.textContent = '—'; return; }
+          var p = dueHidden.value.split('-');
+          var d = new Date(p[0], p[1] - 1, p[2]);
+          dueDisplay.textContent = ruDate(d);
+
+          var today = new Date();
+          today.setHours(0,0,0,0);
+          d.setHours(0,0,0,0);
+          var diff = Math.round((d - today) / (1000 * 60 * 60 * 24));
+          if (diff >= 0 && diff <= 365) {
+              currentDueDays = diff;
+              updateTimePresets(diff);
+          }
+      }
+
+      $$('#tf-due button').forEach(function(btn){
+          btn.addEventListener('click', function(){
+              $$('#tf-due button').forEach(function(b){ b.classList.remove('on'); });
+              btn.classList.add('on');
+              if (btn.hasAttribute('data-custom')) {
+                  dueCustom.hidden = false;
+              } else {
+                  dueCustom.hidden = true;
+                  applyDueDays(parseInt(btn.dataset.days, 10));
+              }
+          });
+      });
+
+      // ────── Динамические пресеты времени ──────
+      var timeContainer = $('#tf-time-presets');
+
+      function updateTimePresets(days){
+          if (!timeContainer) return;
+
+          var presets;
+          if (days <= 0)      presets = [[0.5,'30 мин'], [1,'1 ч'], [2,'2 ч'], [4,'4 ч']];
+          else if (days <= 1) presets = [[1,'1 ч'], [2,'2 ч'], [4,'4 ч'], [8,'8 ч']];
+          else if (days <= 2) presets = [[2,'2 ч'], [4,'4 ч'], [8,'8 ч'], [12,'12 ч']];
+          else if (days <= 7) presets = [[4,'4 ч'], [8,'8 ч'], [16,'16 ч'], [40,'40 ч']];
+          else                presets = [[8,'8 ч'], [16,'16 ч'], [40,'40 ч'], [80,'80 ч']];
+
+          timeContainer.innerHTML = '';
+          presets.forEach(function(pair, idx){
+              var hours = pair[0], label = pair[1];
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.dataset.hours = hours;
+              btn.textContent = label;
+              if (idx === 1) btn.classList.add('on');
+              btn.addEventListener('click', function(){
+                  userTouchedPlan = false;
+                  $$('#tf-time button').forEach(function(b){ b.classList.remove('on'); });
+                  btn.classList.add('on');
+                  planInput.value = hours;
+                  autoScale(hours);
+              });
+              timeContainer.appendChild(btn);
+          });
+
+          if (!userTouchedPlan) {
+              planInput.value = presets[1][0];
+              autoScale(presets[1][0]);
+          }
+      }
+
+      // ────── Ручной ввод плана ──────
+      if (planInput) {
+          planInput.addEventListener('input', function(){
+              userTouchedPlan = true;
+              $$('#tf-time button').forEach(function(b){ b.classList.remove('on'); });
+              var v = planInput.value.replace(',', '.');
+              var n = parseFloat(v);
+              if (!isNaN(n)) autoScale(n);
+          });
+      }
+
+      function autoScale(hours){
+          var scale = $('#tf-scale');
+          if (!scale) return;
+          if (hours <= 1)       scale.value = 'xs';
+          else if (hours <= 8)  scale.value = 's';
+          else if (hours <= 40) scale.value = 'm';
+          else if (hours <= 160) scale.value = 'l';
+          else                  scale.value = 'xl';
+      }
+
+      // ────── Исполнители ──────
+      var execHidden     = $('#exec_ids');
+      var execPanel      = $('#tf-exec-panel');
+      var execSearch     = $('#tf-exec-search');
+      var panelTitle     = $('#tf-exec-panel-title');
+      var clearDeptBtn   = $('#tf-exec-clear-dept');
+      var selfId         = '{{ user.pk }}';
+
+      function currentExecIds(){
+          return execHidden.value ? execHidden.value.split(',').filter(Boolean) : [];
+      }
+
+      function setExecIds(ids){
+          execHidden.value = ids.join(',');
+          $$('#tf-exec-list input[type=checkbox]').forEach(function(cb){
+              cb.checked = ids.indexOf(cb.value) >= 0;
+              cb.closest('label').classList.toggle('on', cb.checked);
+          });
+          // счётчики по отделам
+          $$('.cnt-dept').forEach(function(span){
+              var dept = span.dataset.dept;
+              var n = 0;
+              ids.forEach(function(id){
+                  var lbl = document.querySelector('#tf-exec-list label[data-id="' + id + '"]');
+                  if (lbl && lbl.dataset.dept === dept) n++;
+              });
+              span.textContent = n > 0 ? n : '';
+          });
+          // общий счётчик
+          var allCnt = $('#tf-exec .cnt-all');
+          if (allCnt) allCnt.textContent = ids.length > 0 ? ids.length : '';
+          // подсветка кнопок отделов
+          $$('#tf-exec button[data-dept]').forEach(function(btn){
+              var dept = btn.dataset.dept;
+              var deptCbs = $$('#tf-exec-list label[data-dept="' + dept + '"] input');
+              var deptIds = deptCbs.map(function(cb){ return cb.value; });
+              var allSelected = deptIds.length > 0 && deptIds.every(function(id){
+                  return ids.indexOf(id) >= 0;
+              });
+              btn.classList.toggle('on', allSelected);
+          });
+          // «Я»
+          var selfBtn = $('#tf-exec button[data-self]');
+          if (selfBtn) selfBtn.classList.toggle('on', ids.indexOf(selfId) >= 0);
+      }
+
+      function toggleExecId(id){
+          id = String(id);
+          var ids = currentExecIds();
+          var i = ids.indexOf(id);
+          if (i >= 0) ids.splice(i, 1); else ids.push(id);
+          setExecIds(ids);
+      }
+
+      // «Я»
+      var selfBtn = $('#tf-exec button[data-self]');
+      if (selfBtn) {
+          selfBtn.addEventListener('click', function(){ toggleExecId(selfId); });
+      }
+
+      // кнопки отделов → открыть панель с фильтром
+      $$('#tf-exec button[data-dept]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+              var dept = btn.dataset.dept;
+              if (execPanel) execPanel.hidden = false;
+              if (panelTitle) panelTitle.textContent = 'Сотрудники отдела';
+              if (clearDeptBtn) clearDeptBtn.hidden = false;
+              $$('#tf-exec-list label').forEach(function(lbl){
+                  lbl.hidden = lbl.dataset.dept !== dept;
+              });
+              if (execSearch) execSearch.value = '';
+          });
+      });
+
+      // «Все сотрудники»
+      var toggleAllBtn = $('#tf-exec button[data-toggle-all]');
+      if (toggleAllBtn) {
+          toggleAllBtn.addEventListener('click', function(){
+              if (!execPanel) return;
+              execPanel.hidden = !execPanel.hidden;
+              if (!execPanel.hidden) {
+                  if (panelTitle) panelTitle.textContent = 'Все сотрудники';
+                  if (clearDeptBtn) clearDeptBtn.hidden = true;
+                  $$('#tf-exec-list label').forEach(function(lbl){ lbl.hidden = false; });
+                  if (execSearch) execSearch.value = '';
+              }
+          });
+      }
+
+      if (clearDeptBtn) {
+          clearDeptBtn.addEventListener('click', function(){
+              $$('#tf-exec-list label').forEach(function(lbl){ lbl.hidden = false; });
+              if (panelTitle) panelTitle.textContent = 'Все сотрудники';
+              clearDeptBtn.hidden = true;
+              if (execSearch) execSearch.value = '';
+          });
+      }
+
+      // чекбоксы сотрудников
+      $$('#tf-exec-list input[type=checkbox]').forEach(function(cb){
+          cb.addEventListener('change', function(){ toggleExecId(cb.value); });
+      });
+
+      // поиск по сотрудникам
+      if (execSearch) {
+          execSearch.addEventListener('input', function(){
+              var q = execSearch.value.trim().toLowerCase();
+              $$('#tf-exec-list label').forEach(function(lbl){
+                  if (q) {
+                      lbl.hidden = lbl.textContent.toLowerCase().indexOf(q) === -1;
+                  } else {
+                      lbl.hidden = false;
+                  }
+              });
+          });
+      }
+
+      // первичная синхронизация
+      setExecIds(currentExecIds());
+
+      // ────── Календари ──────
+      if (window.makeCalendar) {
+          makeCalendar({
+              trigger:'#calbtn', input:'#due', view:'#due_view',
+              popup:'#cal', title:'#caltitle', grid:'#calgrid',
+              prev:'#prev', next:'#next', today:'#caltoday', clear:'#calclear'
+          });
+          makeCalendar({
+              trigger:'#extcalbtn', input:'#external_due', view:'#external_due_view',
+              popup:'#extcal', title:'#extcaltitle', grid:'#extcalgrid',
+              prev:'#extprev', next:'#extnext', today:'#extcaltoday', clear:'#extcalclear'
+          });
+          makeCalendar({
+              trigger:'#startcalbtn', input:'#start_due', view:'#start_due_view',
+              popup:'#startcal', title:'#startcaltitle', grid:'#startcalgrid',
+              prev:'#startprev', next:'#startnext', today:'#startcaltoday', clear:'#startcalclear'
+          });
+      }
+
+      // отслеживание смены due (например, через календарь)
+      setInterval(syncDueDisplay, 500);
+
+      // ────── kind2 → kind ──────
+      var kindSelect = $('#tf-kind');
+      var form = $('#tf-form');
+      if (form) {
+            if (form) {
+          form.addEventListener('submit', function(e){
+              if (prioInput.value === 'urgent'){
+                  var reason = document.getElementById('urgent_reason');
+                  if (reason && !reason.value.trim()){
+                      e.preventDefault();
+                      alert('Укажите обоснование срочности — оно уйдёт согласующим.');
+                      reason.focus();
+                  }
+              }
+          });
+      }
+          form.addEventListener('submit', function(){
+              if (kindSelect) {
+                  var hiddenKind = form.querySelector('input[name="kind"]');
+                  if (hiddenKind) hiddenKind.value = kindSelect.value;
+                  kindSelect.removeAttribute('name');
+              }
+          });
+      }
+
+      // ────── Инициализация ──────
+      userTouchedPlan = false;
+      applyDueDays(7);
+      // Предзаполнение external_due из формы (если валидация не прошла)
+      (function(){
+          var ext = document.getElementById('external_due');
+          var extView = document.getElementById('external_due_view');
+          if (ext && ext.value && extView) {
+              // ext.value хранится в ISO, extView — в дд.мм.гггг
+              var m = ext.value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+              if (m) extView.value = m[3] + '.' + m[2] + '.' + m[1];
+          }
+      })();
+      if (orderSelect && orderSelect.value) {
+          refreshBranchOptions();
+      }
+
+  })();
+</script>
+{% endblock %}

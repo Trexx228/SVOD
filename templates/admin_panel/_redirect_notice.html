@@ -1,0 +1,13 @@
+{# Плашка «раздел переехал в кабинет». Вставлять в начале операционных страниц. #}
+{% if user.is_boss or user.can_plant %}
+<div style="background:color-mix(in srgb,var(--blue) 6%,var(--soft));
+            border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line));
+            border-radius:12px;padding:10px 14px;margin-bottom:14px;
+            display:flex;justify-content:space-between;align-items:center;
+            gap:12px;flex-wrap:wrap;font-size:13px">
+    <span>
+        Этот раздел теперь в <b>кабинете руководителя</b> — с тем же scope и удобнее.
+    </span>
+    <a class="pill" href="{{ cabinet_url|default:'/manager/' }}">Перейти →</a>
+</div>
+{% endif %}

@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+  .tile{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px}
+  .tile span{color:var(--muted);font-size:13px;font-weight:600}
+  .tile b{display:block;font-size:26px;margin-top:4px;color:var(--ink)}
+  .thmenu{position:relative}
+  .thbtn{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:700;
+         text-transform:uppercase;letter-spacing:.4px;cursor:pointer}
+  .thbtn:hover{color:var(--blue)}
+  .menu{position:absolute;left:0;top:100%;background:var(--card);border-radius:10px;
+        box-shadow:0 6px 20px rgba(0,0,0,.25);padding:6px;z-index:5;min-width:170px}
+  .menu a{display:block;padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none;
+          font-weight:600;text-transform:none;letter-spacing:0;font-size:14px}
+  .menu a:hover{background:var(--softblue);color:var(--blue)}
+  .chart{display:flex;align-items:flex-end;gap:6px;height:96px}
+  .chart .col{flex:1;background:linear-gradient(180deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#000));border-radius:6px 6px 0 0;min-height:4px}
+  .chartlbl{display:flex;gap:6px;margin-top:4px}
+  .chartlbl span{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+  .prow{margin-bottom:12px}
+  .pbar{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+  .pbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--green),color-mix(in srgb,var(--green) 65%,#000))}
+  .digest{white-space:pre-wrap;font:inherit;margin:0;background:var(--soft);border-radius:10px;
+          padding:14px;border:1px solid var(--line);color:var(--ink)}
+</style>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h2 style="margin:0">Кабинет руководителя</h2>
+  <a class="btn green" href="{% url 'task_create' %}">+ Создать задачу</a>
+</div>
+
+<div class="tiles">
+  <div class="tile"><span>Часов за неделю</span><b>{{ hours_text }}</b></div>
+  <div class="tile"><span>Закрыто за неделю</span><b>{{ done_week }}</b></div>
+  <div class="tile"><span>На проверке</span><b>{{ review_count }}</b></div>
+  <div class="tile"><span>KPI подразделения, 30 дн.</span>
+    <b>{% if kpi_dept %}{{ kpi_dept }}%{% else %}—{% endif %}</b></div>
+</div>
+
+<div class="card">
+  <h3>Дайджест для планёрки</h3>
+  <pre id="digest" class="digest">{{ digest }}</pre>
+  <p style="margin-top:10px">
+    <button class="btn blue" type="button"
+            onclick="navigator.clipboard.writeText(document.getElementById('digest').innerText);this.textContent='Скопировано'">
+      Скопировать</button>
+  </p>
+</div>
+
+<div class="card">
+  <h3>Очередь приёмки</h3>
+  <table>
+    <tr>
+      <th>Задача</th><th>Исполнитель</th>
+      <th class="thmenu">
+        <button type="button" class="thbtn" onclick="var m=this.nextElementSibling;m.hidden=!m.hidden;">
+          Факт{% if unit_title %}, {{ unit_title }}{% endif %} ▾</button>
+        <div class="menu" hidden>
+          <a href="?unit=auto">Авто (мин / ч / д)</a>
+          <a href="?unit=min">Минуты</a>
+          <a href="?unit=h">Часы</a>
+          <a href="?unit=d">Человеко-дни</a>
+        </div>
+      </th>
+      <th>Решение</th>
+    </tr>
+    {% for t in queue %}
+    <tr>
+      <td>{{ t.title }}</td>
+      <td>{{ t.executor.full_name }}</td>
+      <td>{{ t.fact_text }}</td>
+      <td>
+        <form method="post" action="{% url 'task_action' t.pk 'accept' %}" style="display:inline">{% csrf_token %}<button class="btn green">Принять</button></form>
+        <form method="post" action="{% url 'task_action' t.pk 'rework' %}" style="display:inline">{% csrf_token %}<button class="btn orange">На доработку</button></form>
+      </td>
+    </tr>
+    {% empty %}<tr><td colspan="4">На проверке ничего нет</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h3>Просрочено</h3>
+  {% for t in overdue %}<p style="color:var(--red);font-weight:700;margin:6px 0">{{ t.title }} — {{ t.overdue_text }}</p>
+  {% empty %}<p>Просрочек нет</p>{% endfor %}
+</div>
+
+<div class="card">
+  <h3>Часы подразделения за 14 дней</h3>
+  <div class="chart">
+    {% for d in days %}<div class="col" style="height:{{ d.pct }}%" title="{{ d.label }}: {{ d.hours }} ч"></div>{% endfor %}
+  </div>
+  <div class="chartlbl">{% for d in days %}<span>{{ d.label }}</span>{% endfor %}</div>
+</div>
+
+<div class="card">
+  <h3>План / Факт по людям, 30 дней</h3>
+  {% for p in people %}
+  <div class="prow">
+    <div style="display:flex;justify-content:space-between">
+      <b>{{ p.name }}</b>
+      <span style="color:var(--muted);font-size:13px">план {{ p.plan_text }} · факт {{ p.fact_text }}</span>
+    </div>
+    <div class="pbar"><i style="width:{{ p.width }}%"></i></div>
+  </div>
+  {% empty %}<p style="color:var(--muted)">За 30 дней закрытых задач нет.</p>{% endfor %}
+</div>
+
+<div class="card">
+  <h3>Поблагодарить сотрудника</h3>
+  <form method="post" action="{% url 'send_kudos' %}">{% csrf_token %}
+    <select name="to_user" required>
+      <option value="">— сотрудник —</option>
+      {% for u in people_for_kudos %}<option value="{{ u.pk }}">{{ u.full_name }}</option>{% endfor %}
+    </select>
+    <label>Текст благодарности</label>
+    <input name="text" maxlength="200" required placeholder="Например: за оперативный разбор чертежа">
+    <p><button class="btn green" type="submit">Отправить спасибо</button></p>
+  </form>
+</div>
+{% endblock %}

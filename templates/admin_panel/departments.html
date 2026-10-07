@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .set-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .set-tabs .pill{font-size:13px}
+    .set-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+</style>
+
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Подразделения · {{ departments|length }}</h3>
+        <a class="btn green" href="{% url 'settings_department_new' %}">+ Новое подразделение</a>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Название</th><th>Людей</th><th>Создано</th>
+            <th style="text-align:right">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for d in departments %}
+        <tr>
+            <td><b>{{ d.name }}</b></td>
+            <td>{{ d.user_count }}</td>
+            <td>{{ d.created_at|date:'d.m.Y' }}</td>
+            <td style="text-align:right;white-space:nowrap">
+                <a class="btn blue" href="{% url 'settings_department_edit' d.pk %}"
+                   style="padding:6px 12px;font-size:13px">Изменить</a>
+                <form method="post" action="{% url 'settings_department_delete' d.pk %}"
+                      style="display:inline;margin:0"
+                      data-confirm="Удалить подразделение «{{ d.name }}»?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn red"
+                            style="padding:6px 12px;font-size:13px">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px 0">
+            Подразделений пока нет.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

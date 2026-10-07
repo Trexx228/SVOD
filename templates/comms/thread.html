@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+    <h2 style="margin:0">{{ title }}</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if thread.task %}
+        <a class="btn gray" style="padding:6px 14px" href="{% url 'task_detail' thread.task.pk %}">← Задача</a>
+        {% endif %}
+        <a class="btn gray" style="padding:6px 14px" href="{% url 'dialogs' %}">Все чаты</a>
+    </div>
+</div>
+
+<div class="card" id="thread-card" style="max-height:60vh;overflow:auto;padding:14px">
+    {% for it in items %}
+    {% if it.sep %}
+    <div style="text-align:center;color:var(--muted);font-size:12px;margin:14px 0 8px">
+        {{ it.sep|date:'d.m.Y' }}
+    </div>
+    {% else %}
+    <div style="display:flex;{% if it.own %}justify-content:flex-end{% else %}justify-content:flex-start{% endif %};margin:6px 0">
+        <div style="max-width:70%;background:{% if it.own %}var(--softblue){% else %}var(--soft){% endif %};border-radius:12px;padding:8px 12px">
+            {% if not it.own %}
+            <div style="font-weight:700;font-size:12px;color:var(--blue)">{{ it.msg.author.full_name }}</div>
+            {% endif %}
+            <div style="white-space:pre-wrap">{{ it.msg.text }}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:4px;text-align:right">
+                {{ it.msg.created_at|date:'H:i' }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% empty %}
+    <p style="color:var(--muted);text-align:center;padding:24px 0">Сообщений пока нет — начните первым.</p>
+    {% endfor %}
+</div>
+
+<form method="post" action="{% url 'thread_send' thread.pk %}" style="margin-top:12px">
+    {% csrf_token %}
+    <textarea name="text" rows="3" placeholder="Сообщение…" required maxlength="2000"></textarea>
+    <div id="attach-box" class="attach-zone" style="margin-top:8px"></div>
+    <input type="hidden" name="attach_ids" id="attach_ids" value="">
+    <label style="display:inline-block;margin:6px 0 0;cursor:pointer">📎 Прикрепить
+        <input type="file" id="attach-input" multiple style="display:none"
+               accept=".png,.jpg,.jpeg,.gif,.webp,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+    </label>
+    <p style="margin-top:10px"><button type="submit" class="btn blue">Отправить</button></p>
+</form>
+
+{% if can_arrival or can_launch or can_block %}
+<div class="card" style="margin-top:16px">
+    <b>События задачи</b>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        {% if can_arrival %}
+        <form method="post" action="{% url 'task_event' thread.task.pk %}" style="margin:0">
+            {% csrf_token %}<input type="hidden" name="kind" value="arrival">
+            <button class="btn green" type="submit">Прибыло на склад</button>
+        </form>
+        {% endif %}
+        {% if can_launch %}
+        <form method="post" action="{% url 'task_event' thread.task.pk %}" style="margin:0">
+            {% csrf_token %}<input type="hidden" name="kind" value="launch">
+            <button class="btn blue" type="submit">Можно запускать</button>
+        </form>
+        {% endif %}
+        {% if can_block %}
+        <form method="post" action="{% url 'task_event' thread.task.pk %}" style="margin:0">
+            {% csrf_token %}<input type="hidden" name="kind" value="block">
+            <input type="text" name="text" placeholder="Что мешает?" required
+                   style="min-width:220px;display:inline-block;width:auto">
+            <button class="btn red" type="submit">Затор</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+    (function(){
+      const card = document.getElementById('thread-card');
+      if (card) card.scrollTop = card.scrollHeight;
+    })();
+</script>
+{% endblock %}

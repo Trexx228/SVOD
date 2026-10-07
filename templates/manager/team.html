@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Команда" %}
+
+<div class="card" style="padding:0">
+    <div class="table-responsive">
+        <table>
+            <thead>
+            <tr>
+                <th>Сотрудник</th><th>Открытых</th><th>Просрочено</th>
+                <th>Часы за месяц</th><th>Загрузка к норме</th>
+                <th>OTD (в срок)</th><th>Возвраты</th><th>KPI мес.</th>
+                <th>План недели</th><th>Выразить благодарность</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in team %}
+            <tr>
+                <td>
+                    <a href="{% url 'manager_person' r.user.pk %}">{{ r.user.full_name }}</a>
+                    <br><small style="color:var(--muted)">{{ r.user.department|default:'без подразделения' }}</small>
+                </td>
+                <td>{{ r.open }}</td>
+                <td>{% if r.overdue %}<span class="badge bg-danger">{{ r.overdue }}</span>{% else %}0{% endif %}</td>
+                <td>{{ r.hours|floatformat:1 }}</td>
+                <td>{% if r.util is not None %}
+                    <span class="{% if r.util < 70 or r.util > 110 %}text-warning{% else %}text-success{% endif %}">{{ r.util }}%</span>
+                    {% else %}—{% endif %}</td>
+                <td>{% if r.otd is not None %}{{ r.otd }}%{% else %}—{% endif %}</td>
+                <td>{% if r.rework %}<span class="badge bg-warning text-dark">{{ r.rework }}</span>{% else %}0{% endif %}</td>
+                <td>{% if r.kpi %}{% if r.kpi > 300 %}<span class="text-danger">&gt;300%</span>{% else %}{{ r.kpi }}%{% endif %}{% else %}—{% endif %}</td>
+                <td>{% if r.commit_n %}{{ r.commit_done }}/{{ r.commit_n }}{% else %}—{% endif %}</td>
+                <td>
+                    {% if r.user != request.user %}
+                    <form method="post" action="{% url 'kudos_send' %}"
+                          style="margin:0;display:flex;gap:6px;align-items:center;min-width:200px">
+                        {% csrf_token %}
+                        <input type="hidden" name="to_user" value="{{ r.user.pk }}">
+                        <input type="text" name="text" placeholder="Спасибо за..." required maxlength="200"
+                               style="flex:1 1 auto;min-width:120px;padding:6px 8px;font-size:13px">
+                        <button type="submit" class="btn green"
+                                style="flex:none;padding:6px 10px;font-size:14px;line-height:1">👍</button>
+                    </form>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px 0">В подразделении пока нет сотрудников.</td></tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            <tr style="background:var(--soft);font-weight:700">
+                <th>Итого</th><td>{{ totals.open }}</td>
+                <td colspan="2">Ёмкость месяца: {{ capacity|floatformat:0 }} ч на человека</td>
+                <td></td><td></td><td>{{ totals.rework }}</td>
+                <td></td><td></td><td></td>
+            </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+<p style="color:var(--muted);font-size:13px">
+    Загрузка = фактические часы / норма × рабочие дни месяца (70–110% — здоровая зона).<br>
+    OTD = доля закрытых в срок от закрытых со сроком. Возвраты = отказы приёмки с начала месяца.
+</p>
+{% endblock %}

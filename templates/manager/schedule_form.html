@@ -1,0 +1,320 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="График работы" %}
+
+<style>
+    .sf-wrap{max-width:860px}
+
+    .sf-presets{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+    .sf-preset{
+        padding:6px 14px;border-radius:999px;border:1px solid var(--input);
+        color:var(--muted);background:var(--card);font-weight:600;font-size:13px;
+        cursor:pointer;transition:all .15s;
+    }
+    .sf-preset:hover{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+    .sf-preset.on{background:var(--softblue);color:var(--blue);border-color:var(--blue);font-weight:700}
+
+    .sf-editor{
+        display:flex;flex-wrap:wrap;gap:4px;padding:12px;
+        background:var(--soft);border:1px solid var(--line);border-radius:12px;
+        margin:8px 0 12px;
+    }
+    .sf-cell{
+        width:32px;height:32px;border-radius:8px;border:1px solid var(--line);
+        background:var(--card);color:var(--muted);font:inherit;font-weight:700;
+        cursor:pointer;transition:all .12s;
+        display:inline-flex;align-items:center;justify-content:center;
+        font-size:12px;
+    }
+    .sf-cell.w{background:var(--green);color:#fff;border-color:var(--green)}
+    .sf-cell:hover{transform:translateY(-1px)}
+    .sf-cell.idx{
+        font-weight:400;font-size:10px;opacity:.5;pointer-events:none;
+        border-color:transparent;background:transparent;cursor:default;
+        width:20px;
+    }
+    .sf-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+    .sf-actions button{
+        padding:6px 12px;border-radius:8px;border:1px solid var(--input);
+        background:var(--card);color:var(--muted);font:inherit;font-size:12px;
+        font-weight:600;cursor:pointer;
+    }
+    .sf-actions button:hover{background:var(--softblue);color:var(--blue)}
+
+    .sf-preview{
+        display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;
+    }
+    .sf-day{
+        width:34px;min-height:44px;padding:4px;border-radius:8px;
+        background:var(--soft);border:1px solid var(--line);
+        text-align:center;font-size:10px;line-height:1.2;
+        display:flex;flex-direction:column;justify-content:center;gap:1px;
+    }
+    .sf-day.w{background:color-mix(in srgb,var(--green) 20%,var(--soft));
+             border-color:color-mix(in srgb,var(--green) 45%,var(--line))}
+    .sf-day.off{opacity:.6}
+    .sf-day .d{font-weight:800;font-size:12px}
+    .sf-day .wd{color:var(--muted);text-transform:uppercase;font-size:9px}
+
+    .sf-hint{color:var(--muted);font-size:12px;margin:4px 0 14px;line-height:1.5}
+    .sf-errors{background:color-mix(in srgb,var(--red) 10%,transparent);
+               border:1px solid color-mix(in srgb,var(--red) 45%,var(--line));
+               border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:13px}
+    .sf-errors ul{margin:6px 0 0;padding-left:18px}
+</style>
+
+<div class="card sf-wrap">
+    <h2 style="margin:0 0 4px">
+        {% if is_new %}Новый график работы{% else %}График «{{ schedule.name }}»{% endif %}
+    </h2>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+        График задаёт, какие дни рабочие. Для сменных режимов (2/2, 7/7)
+        праздники — обычная смена. Для офисных 5/2 — включите учёт
+        производственного календаря.
+    </p>
+
+    {% if form.non_field_errors %}
+    <div class="sf-errors">
+        <b>Не сохранилось:</b>
+        <ul>
+            {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" id="sf-form">
+        {% csrf_token %}
+
+        <label for="{{ form.name.id_for_label }}">Название</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="sf-errors">{{ form.name.errors|join:' ' }}</div>{% endif %}
+
+        <label for="{{ form.description.id_for_label }}">Описание</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="sf-errors">{{ form.description.errors|join:' ' }}</div>{% endif %}
+
+        <label>Паттерн</label>
+        <p class="sf-hint" style="margin-top:2px">
+            Ряд из 0 и 1. 1 — рабочий день, 0 — выходной.
+            Цикл начинается с первого элемента и повторяется.
+            Кликните по квадратику, чтобы переключить.
+        </p>
+
+        <div class="sf-presets" id="sf-presets">
+            {% for p in pattern_presets %}
+            <button type="button" class="sf-preset" data-pattern='{{ p.pattern|safe }}'>
+                {{ p.label }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="sf-editor" id="sf-editor"></div>
+        {{ form.pattern_json }}
+        {% if form.pattern_json.errors %}
+        <div class="sf-errors">{{ form.pattern_json.errors|join:' ' }}</div>
+        {% endif %}
+
+        <div class="sf-actions">
+            <button type="button" data-add-bit>+ ячейка</button>
+            <button type="button" data-rm-bit>− ячейка</button>
+            <button type="button" data-clr>Всё в 0</button>
+            <button type="button" data-sets>Всё в 1</button>
+        </div>
+
+        <label for="{{ form.anchor_date.id_for_label }}">Начало цикла</label>
+        {{ form.anchor_date }}
+        <p class="sf-hint">{{ form.anchor_date.help_text }}</p>
+        {% if form.anchor_date.errors %}
+        <div class="sf-errors">{{ form.anchor_date.errors|join:' ' }}</div>
+        {% endif %}
+
+        <label for="{{ form.hours_per_shift.id_for_label }}">Часов в смене</label>
+        {{ form.hours_per_shift }}
+        {% if form.hours_per_shift.errors %}
+        <div class="sf-errors">{{ form.hours_per_shift.errors|join:' ' }}</div>
+        {% endif %}
+
+        <label style="display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-weight:400">
+            {{ form.is_active }}
+            <span>
+                <b>Активен</b>
+                <span class="sf-hint" style="display:block;margin-top:2px">
+                    Если выключить — график перестанет применяться, все
+                    сотрудники вернутся на график отдела / встроенный 5/2.
+                </span>
+            </span>
+        </label>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;font-weight:400">
+            {{ form.use_calendar }}
+            <span>
+                <b>Учитывать производственный календарь</b>
+                <span class="sf-hint" style="display:block;margin-top:2px">
+                    Праздники РФ и переносы переопределяют паттерн:
+                    праздник → выходной, перенос → рабочий. Включено для
+                    офисных 5/2. Выключено для 2/2, 7/7, 3/3 — там праздник
+                    обычная смена.
+                </span>
+            </span>
+        </label>
+
+        <div style="margin-top:24px;padding-top:14px;border-top:1px solid var(--line)">
+            <b style="display:block;margin-bottom:6px;font-size:13px">Превью на 14 дней</b>
+            <p class="sf-hint" style="margin-top:2px">
+                Предпросмотр по паттерну и календарю. Праздники и переносы
+                окончательно будут применены сервером при сохранении.
+            </p>
+            <div class="sf-preview" id="sf-preview"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:24px">
+            <button type="submit" class="btn green" style="min-width:200px">
+                {% if is_new %}Создать{% else %}Сохранить{% endif %}
+            </button>
+            <a class="btn gray"
+               href="{% if schedule %}{% url 'manager_schedule_detail' schedule.pk %}{% else %}{% url 'manager_schedules' %}{% endif %}">
+                Отмена
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function(){
+        'use strict';
+
+        var patternInput = document.getElementById('{{ form.pattern_json.id_for_label }}');
+        var editor = document.getElementById('sf-editor');
+        var presets = document.getElementById('sf-presets');
+        var preview = document.getElementById('sf-preview');
+        var anchorInput = document.getElementById('{{ form.anchor_date.id_for_label }}');
+        var calendarCheckbox = document.getElementById('{{ form.use_calendar.id_for_label }}');
+
+        var PATTERN_MIN = 2;
+        var PATTERN_MAX = 31;
+
+        var pattern = [];
+        try {
+            pattern = JSON.parse(patternInput.value || '[]');
+        } catch (e) {
+            pattern = [];
+        }
+        if (!Array.isArray(pattern) || pattern.length === 0) {
+            pattern = [1, 1, 1, 1, 1, 0, 0];
+        }
+        pattern = pattern.map(function(x){ return x ? 1 : 0; });
+
+        function sync(){
+            patternInput.value = JSON.stringify(pattern);
+            renderEditor();
+            renderPreview();
+            highlightPreset();
+        }
+
+        function renderEditor(){
+            editor.innerHTML = '';
+            pattern.forEach(function(val, idx){
+                var ix = document.createElement('span');
+                ix.className = 'sf-cell idx';
+                ix.textContent = idx + 1;
+                editor.appendChild(ix);
+
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'sf-cell' + (val ? ' w' : '');
+                b.textContent = val ? '1' : '0';
+                b.dataset.i = idx;
+                b.addEventListener('click', function(){
+                    pattern[idx] = pattern[idx] ? 0 : 1;
+                    sync();
+                });
+                editor.appendChild(b);
+            });
+        }
+
+        function fmtRu(d){
+            var dd = String(d.getDate()).padStart(2, '0');
+            var mm = String(d.getMonth() + 1).padStart(2, '0');
+            return dd + '.' + mm + '.' + d.getFullYear();
+        }
+
+        function renderPreview(){
+            preview.innerHTML = '';
+            var anchor = anchorInput.value
+                ? new Date(anchorInput.value + 'T00:00:00')
+                : new Date();
+            if (isNaN(anchor.getTime())) anchor = new Date();
+
+            var n = pattern.length || 7;
+            var today = new Date(); today.setHours(0,0,0,0);
+
+            for (var i = 0; i < 14; i++){
+                var d = new Date(today);
+                d.setDate(d.getDate() + i);
+
+                var offset = Math.floor((d - anchor) / 86400000) % n;
+                if (offset < 0) offset += n;
+                var isWorking = !!pattern[offset];
+
+                var el = document.createElement('div');
+                el.className = 'sf-day ' + (isWorking ? 'w' : 'off');
+                el.title = fmtRu(d) + (isWorking ? ' · рабочий' : ' · выходной');
+                var wd = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][d.getDay()];
+                el.innerHTML =
+                    '<span class="wd">' + wd + '</span>' +
+                    '<span class="d">' + d.getDate() + '</span>';
+                preview.appendChild(el);
+            }
+        }
+
+        function highlightPreset(){
+            var s = JSON.stringify(pattern);
+            var all = presets.querySelectorAll('.sf-preset');
+            for (var i = 0; i < all.length; i++){
+                var p = all[i].dataset.pattern.replace(/\s+/g, '');
+                all[i].classList.toggle('on', p === s);
+            }
+        }
+
+        presets.addEventListener('click', function(e){
+            var b = e.target.closest('.sf-preset');
+            if (!b) return;
+            try {
+                pattern = JSON.parse(b.dataset.pattern);
+            } catch (err) {
+                return;
+            }
+            sync();
+        });
+
+        document.querySelector('[data-add-bit]').addEventListener('click', function(){
+            if (pattern.length >= PATTERN_MAX) return;
+            pattern.push(0);
+            sync();
+        });
+        document.querySelector('[data-rm-bit]').addEventListener('click', function(){
+            if (pattern.length <= PATTERN_MIN) return;
+            pattern.pop();
+            sync();
+        });
+        document.querySelector('[data-clr]').addEventListener('click', function(){
+            pattern = pattern.map(function(){ return 0; });
+            sync();
+        });
+        document.querySelector('[data-sets]').addEventListener('click', function(){
+            pattern = pattern.map(function(){ return 1; });
+            sync();
+        });
+
+        anchorInput.addEventListener('change', renderPreview);
+        anchorInput.addEventListener('input', renderPreview);
+        if (calendarCheckbox){
+            calendarCheckbox.addEventListener('change', renderPreview);
+        }
+
+        // Первичная отрисовка
+        sync();
+    })();
+</script>
+
+{% endblock %}

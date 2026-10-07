@@ -1,0 +1,27 @@
+<div class="tnode" style="margin:2px 0 2px 18px;padding-left:10px;border-left:3px solid {% if node.state == 'over' %}var(--red){% elif node.state == 'review' %}var(--blue){% elif node.state == 'done' %}var(--green){% elif node.state == 'cancel' %}var(--gray){% else %}var(--line){% endif %}">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        {% if node.children %}
+        <button type="button" class="ibtn" style="width:24px;height:24px"
+                onclick="const w=this.closest('.tnode').querySelector(':scope > .tchildren'); w.hidden=!w.hidden; this.textContent=w.hidden?'▸':'▾'">▾</button>
+        {% else %}
+        <span style="display:inline-block;width:24px;text-align:center;color:var(--muted)">·</span>
+        {% endif %}
+        <a href="{% url 'task_detail' node.task.pk %}"><b>{{ node.task.title }}</b></a>
+        <span class="badge">{{ node.task.get_status_display }}</span>
+        <span class="badge">{{ node.task.get_scale_display }}</span>
+        <span style="color:var(--muted);font-size:12px">
+    → {{ node.task.executor.full_name }} ({{ node.task.executor.department|default:'—' }})
+    {% if node.task.executor.is_dismissed %}
+    <span style="color:var(--orange);font-weight:700">⚠ уволен</span>
+    {% endif %}
+</span>
+        {% if node.roll.0 %}
+        <span style="color:var(--muted);font-size:12px">· подзадач закрыто {{ node.roll.1 }} из {{ node.roll.0 }} · факт {{ node.roll.3|floatformat:1 }} ч из {{ node.roll.2|floatformat:1 }} ч</span>
+        {% endif %}
+    </div>
+    {% if node.children %}
+    <div class="tchildren">
+        {% for c in node.children %}{% include 'tasks/tree_node.html' with node=c %}{% endfor %}
+    </div>
+    {% endif %}
+</div>

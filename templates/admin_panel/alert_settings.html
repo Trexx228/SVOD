@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_alerts' %}">← Уведомления</a>
+</div>
+
+<div class="card" style="max-width:720px">
+    <h3 style="margin:0 0 12px">Настройки уведомлений</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+        Пороги срабатывания алертов и доставка писем администратору.
+        Изменения применяются сразу, без перезапуска.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <h4 style="margin:0 0 8px;font-size:14px">Отказы входа</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div>
+                <label>Порог (штук)</label>
+                <input type="number" name="failed_logins_threshold" min="1"
+                       value="{{ cfg.failed_logins_threshold }}" required>
+                <div style="color:var(--muted);font-size:12px;margin-top:4px">
+                    Сколько неудачных попыток считать тревогой.
+                </div>
+            </div>
+            <div>
+                <label>Окно (минут)</label>
+                <input type="number" name="failed_logins_window_min" min="1"
+                       value="{{ cfg.failed_logins_window_min }}" required>
+                <div style="color:var(--muted);font-size:12px;margin-top:4px">
+                    За какой интервал считать попытки.
+                </div>
+            </div>
+        </div>
+
+        <h4 style="margin:0 0 8px;font-size:14px">Какие алерты включены</h4>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <input type="checkbox" name="single_admin_alert" value="1" style="width:auto"
+                   {% if cfg.single_admin_alert %}checked{% endif %}>
+            Тревога «в системе один администратор»
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <input type="checkbox" name="no_norm_alert" value="1" style="width:auto"
+                   {% if cfg.no_norm_alert %}checked{% endif %}>
+            Тревога «нет нормы часов»
+        </label>
+
+        <h4 style="margin:0 0 8px;font-size:14px">Email-уведомления</h4>
+        <label>Адрес для писем</label>
+        <input type="email" name="notify_email" value="{{ cfg.notify_email }}"
+               placeholder="admin@example.com (пусто = не отправлять)">
+        <div style="color:var(--muted);font-size:12px;margin-top:4px;margin-bottom:12px">
+            Если задан — при каждом новом алерте или при 5/10/25/50/100-м
+            срабатывании отправляется письмо.
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <input type="checkbox" name="notify_on_danger_only" value="1" style="width:auto"
+                   {% if cfg.notify_on_danger_only %}checked{% endif %}>
+            Только тревожные (severity=danger)
+        </label>
+
+        <p style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="submit" class="btn green">Сохранить</button>
+        </p>
+    </form>
+
+    {% if cfg.notify_email %}
+    <form method="post" action="{% url 'settings_alert_test_email' %}"
+          style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        {% csrf_token %}
+        <button type="submit" class="btn blue">Отправить тестовое письмо</button>
+        <span style="color:var(--muted);font-size:12px;margin-left:8px">
+            на {{ cfg.notify_email }}
+        </span>
+    </form>
+    {% endif %}
+
+    <p style="color:var(--muted);font-size:12px;margin:14px 0 0">
+        Обновлено: {{ cfg.updated_at|date:'d.m.Y H:i' }}
+    </p>
+</div>
+{% endblock %}

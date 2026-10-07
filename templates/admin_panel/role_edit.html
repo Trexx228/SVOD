@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">
+    {% if role %}Роль · {{ role.name }}{% else %}Новая роль{% endif %}
+</h2>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_roles' %}">← Все роли</a>
+    {% if role and users_count %}
+    <a class="pill" href="{% url 'settings_role_reassign' role.pk %}">
+        Переназначить пользователей ({{ users_count }})
+    </a>
+    {% endif %}
+</div>
+
+<style>
+    .re-imp{margin-top:16px}
+    .re-imp h4{margin:0 0 8px;font-size:14px}
+    .re-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
+    .re-list li{padding:6px 10px;background:var(--soft);border:1px solid var(--line);
+                border-radius:10px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+    .re-list .meta{color:var(--muted);font-size:12px}
+    .re-warn{background:color-mix(in srgb,var(--orange) 12%,transparent);
+             border:1px solid color-mix(in srgb,var(--orange) 50%,var(--line));
+             border-radius:12px;padding:10px 14px;margin-top:12px;font-size:13px}
+    .re-warn.danger{background:color-mix(in srgb,var(--red) 12%,transparent);
+                    border-color:color-mix(in srgb,var(--red) 50%,var(--line))}
+
+    .re-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+    .re-section h4{margin:0 0 10px;font-size:13px;color:var(--muted);
+                   text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+
+    .re-check{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;
+              cursor:pointer;font-size:13px;border-radius:10px;
+              border:1px solid var(--line);background:var(--card);margin-bottom:6px;
+              transition:background .15s,border-color .15s}
+    .re-check:hover{background:var(--soft)}
+    .re-check input{margin-top:3px;width:auto;cursor:pointer;flex:none}
+    .re-check .title{font-weight:700}
+    .re-check .hint{color:var(--muted);font-size:12px;margin-top:2px;line-height:1.4}
+    .re-check .tag{display:inline-block;padding:1px 7px;border-radius:999px;
+                   font-size:10px;font-weight:700;margin-left:6px;
+                   background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+    .re-check .tag.blue{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .re-check .tag.orange{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .re-check .tag.red{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+
+    .re-base{background:color-mix(in srgb,var(--blue) 6%,var(--soft));
+             border-color:color-mix(in srgb,var(--blue) 30%,var(--line));
+             opacity:.85;cursor:default}
+</style>
+
+<div class="card" style="max-width:820px">
+    <form method="post">
+        {% csrf_token %}
+
+        <label>Название роли</label>
+        <input name="name" required maxlength="100" value="{{ role.name|default:'' }}"
+               placeholder="Например, Инженер-конструктор">
+
+        <label>Код (латиницей, без пробелов)</label>
+        <input name="code" required maxlength="50" value="{{ role.code|default:'' }}"
+               placeholder="staff" pattern="[a-z0-9\-_]+">
+
+        <label>Описание</label>
+        <input name="description" maxlength="200" value="{{ role.description|default:'' }}"
+               placeholder="Короткое пояснение">
+
+        {# ─────── БАЗОВЫЕ ФУНКЦИИ (всегда) ─────── #}
+        <div class="re-section">
+            <h4>Базовые функции</h4>
+            <div class="re-check re-base">
+                <input type="checkbox" checked disabled style="width:auto;cursor:default">
+                <div>
+                    <div class="title">Базовый доступ <span class="tag blue">всегда включено</span></div>
+                    <div class="hint">
+                        Свои задачи, постановка задач, календарь, рейтинг, свой кабинет и профиль.
+                        Доступно всем активным пользователям независимо от роли.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ─────── УПРАВЛЕНЧЕСКИЕ ПРАВА ─────── #}
+        <div class="re-section">
+            <h4>Управление</h4>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_manage" value="1"
+                       {% if role and role.can_manage %}checked{% endif %}>
+                <div>
+                    <div class="title">Руководитель отдела</div>
+                    <div class="hint">
+                        Управляет задачами и приёмкой, видит сотрудников своего отдела,
+                        доступ к кабинету руководителя.
+                    </div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_plant" value="1"
+                       {% if role and role.can_plant %}checked{% endif %}>
+                <div>
+                    <div class="title">Директор / свод по заводу</div>
+                    <div class="hint">
+                        Видит данные всех подразделений без ограничения по отделу.
+                        Даёт доступ к разделу «Завод» и «Кто где».
+                    </div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_admin" value="1"
+                       {% if role and role.can_admin %}checked{% endif %}>
+                <div>
+                    <div class="title">Администратор портала</div>
+                    <div class="hint">
+                        Полный доступ к админке: пользователи, роли, справочники,
+                        бэкапы, аудит, рассылки, обслуживание. Даёт все права ниже.
+                    </div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="is_developer" value="1"
+                       {% if role and role.is_developer %}checked{% endif %}>
+                <div>
+                    <div class="title">
+                        Разработчик
+                        <span class="tag">техническая</span>
+                    </div>
+                    <div class="hint">
+                        Отдельный раздел «Разработка» в шапке: логи, состояние
+                        планировщика, список моделей, дампы. Не даёт прав
+                        руководителя или админа — только инструменты
+                        диагностики. Выдавать только тем, кто реально
+                        занимается эксплуатацией.
+                    </div>
+                </div>
+            </label>
+        </div>
+
+        {# ─────── РАЗДЕЛЫ КАБИНЕТА ─────── #}
+        <div class="re-section">
+            <h4>Разделы кабинета</h4>
+            <p style="color:var(--muted);font-size:12px;margin:0 0 10px">
+                Что сотрудник видит в кабинете сотрудника или руководителя.
+                Администратор получает всё автоматически.
+            </p>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_kpi" value="1"
+                       {% if role and role.can_view_kpi %}checked{% endif %}>
+                <div>
+                    <div class="title">KPI</div>
+                    <div class="hint">Отчёт: план / факт часов, % в срок, эффективность.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_sessions" value="1"
+                       {% if role and role.can_view_sessions %}checked{% endif %}>
+                <div>
+                    <div class="title">Сессии работы и цеха</div>
+                    <div class="hint">Журнал трудозатрат сотрудников.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_online" value="1"
+                       {% if role and role.can_view_online %}checked{% endif %}>
+                <div>
+                    <div class="title">Кто онлайн</div>
+                    <div class="hint">Активные пользователи и текущие сессии.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_problems" value="1"
+                       {% if role and role.can_view_problems %}checked{% endif %}>
+                <div>
+                    <div class="title">Проблемные задачи</div>
+                    <div class="hint">Диагностика: просрочки, без плана, залипшие таймеры.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_task_logs" value="1"
+                       {% if role and role.can_view_task_logs %}checked{% endif %}>
+                <div>
+                    <div class="title">Логи задач</div>
+                    <div class="hint">Кто и когда менял статусы, сроки, приоритеты.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_orders" value="1"
+                       {% if role and role.can_view_orders %}checked{% endif %}>
+                <div>
+                    <div class="title">Заказы (просмотр)</div>
+                    <div class="hint">Список заказов и веток. Редактирование — только админ.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_view_analytics" value="1"
+                       {% if role and role.can_view_analytics %}checked{% endif %}>
+                <div>
+                    <div class="title">Аналитика по отделам</div>
+                    <div class="hint">Сводные метрики всех подразделений.</div>
+                </div>
+            </label>
+
+            <label class="re-check">
+                <input type="checkbox" name="can_export" value="1"
+                       {% if role and role.can_export %}checked{% endif %}>
+                <div>
+                    <div class="title">Экспорт отчётов</div>
+                    <div class="hint">Скачивание CSV / XLSX в доступных разделах.</div>
+                </div>
+            </label>
+        </div>
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green">
+                {% if role %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </p>
+    </form>
+
+    {% if role %}
+    <div class="re-imp">
+        <h4>Влияние</h4>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">
+            Пользователей с этой ролью: <b>{{ users_count }}</b>
+            (из них активных: <b>{{ users_active_count }}</b>).
+        </p>
+
+        {% if role_users %}
+        <ul class="re-list">
+            {% for u in role_users %}
+            <li>
+                <span>
+                    <b>{{ u.full_name }}</b>
+                    <span class="meta"> · {{ u.email }}{% if u.department %} · {{ u.department.name }}{% endif %}</span>
+                </span>
+                {% if not u.is_active %}<span class="meta">отключён</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% if users_count > 10 %}
+        <p class="meta" style="margin:6px 0 0;color:var(--muted);font-size:12px">
+            …и ещё {{ users_count|add:"-10" }}.
+            <a href="{% url 'settings_users' %}?role={{ role.pk }}">Смотреть всех</a>
+        </p>
+        {% endif %}
+        {% endif %}
+
+        {% if role.can_admin %}
+        {% if other_admin_roles %}
+        <div class="re-warn">
+            <b>Другие роли с админскими правами:</b>
+            {% for r in other_admin_roles %}{{ r.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+            Снятие галочки «Права администратора» не заблокирует систему.
+        </div>
+        {% else %}
+        <div class="re-warn danger">
+            <b>Это единственная роль с админскими правами.</b>
+            Снять галочку нельзя, пока не появится другая роль-админ или суперюзер.
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

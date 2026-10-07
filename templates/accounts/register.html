@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card" style="max-width:460px;margin:40px auto">
+    <h2>Регистрация</h2>
+    <p style="color:var(--muted);margin:0 0 8px">
+        Регистрация доступна только с корпоративной почтой @eag.su.
+    </p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+        <div style="color:var(--red);margin:0 0 8px">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <label for="{{ form.email.id_for_label }}">Email</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p style="color:var(--red);margin:4px 0 0">{{ form.email.errors|join:' ' }}</p>{% endif %}
+
+        <label for="{{ form.full_name.id_for_label }}">ФИО</label>
+        {{ form.full_name }}
+        {% if form.full_name.errors %}<p style="color:var(--red);margin:4px 0 0">{{ form.full_name.errors|join:' ' }}</p>{% endif %}
+
+        <label for="{{ form.department_hint.id_for_label }}">Подразделение</label>
+        {{ form.department_hint }}
+        {% if form.department_hint.help_text %}
+        <small style="color:var(--muted);font-size:12px">{{ form.department_hint.help_text }}</small>
+        {% endif %}
+        {% if form.department_hint.errors %}<p style="color:var(--red);margin:4px 0 0">{{ form.department_hint.errors|join:' ' }}</p>{% endif %}
+
+        <label for="{{ form.password1.id_for_label }}">Пароль</label>
+        {{ form.password1 }}
+        {% if form.password1.errors %}<p style="color:var(--red);margin:4px 0 0">{{ form.password1.errors|join:' ' }}</p>{% endif %}
+
+        <label for="{{ form.password2.id_for_label }}">Повторите пароль</label>
+        {{ form.password2 }}
+        {% if form.password2.errors %}<p style="color:var(--red);margin:4px 0 0">{{ form.password2.errors|join:' ' }}</p>{% endif %}
+
+        <p style="margin-top:16px">
+            <button class="btn green" type="submit">Создать аккаунт</button>
+        </p>
+    </form>
+
+    <p style="margin:14px 0 0"><a href="{% url 'login' %}">← Уже есть аккаунт</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Статистика завода" %}
+
+<div class="alert alert-info">
+    Свод по всем подразделениям за текущий месяц. KPI = план/факт (здоровая зона 90–110%).<br>
+    Загрузка = фактические часы / (норма × рабочие дни × люди).
+</div>
+
+<p><a href="{% url 'manager_plant_csv' %}" class="btn green">⬇️ CSV по подразделениям</a></p>
+
+<div class="card" style="padding:0">
+    <div class="table-responsive">
+        <table>
+            <thead>
+            <tr>
+                <th>Подразделение</th><th>Людей</th><th>Открытых</th><th>Просрочено</th>
+                <th>Закрыто</th><th>План, ч</th><th>Факт, ч</th><th>KPI</th><th>OTD</th>
+                <th>Отложено🔥</th><th>Впустую, ч</th><th>Возвраты</th><th>Цех, ч</th>
+                <th>🚨 Сверхурочные, ч</th><th>Загрузка</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>{{ r.dep }}</td><td>{{ r.people }}</td><td>{{ r.open }}</td>
+                <td>{% if r.overdue %}<span class="badge bg-danger">{{ r.overdue }}</span>{% else %}0{% endif %}</td>
+                <td>{{ r.closed }}</td>
+                <td>{{ r.plan|floatformat:1 }}</td><td>{{ r.fact|floatformat:1 }}</td>
+                <td>{% if r.kpi %}{% if r.kpi > 300 %}&gt;300{% else %}{{ r.kpi }}{% endif %}%{% else %}—{% endif %}</td>
+                <td>{% if r.otd is not None %}{{ r.otd }}%{% else %}—{% endif %}</td>
+                <td>{% if r.deferred_urgent %}<span class="badge bg-danger">{{ r.deferred_urgent }}</span>{% else %}0{% endif %}</td>
+                <td>{% if r.wasted_fact %}<span style="color:var(--red);font-weight:700">{{ r.wasted_fact|floatformat:1 }}</span>{% else %}0{% endif %}</td>
+                <td>{% if r.rework %}<span class="badge bg-warning text-dark">{{ r.rework }}</span>{% else %}0{% endif %}</td>
+                <td>{% if r.shop %}{{ r.shop|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td>
+                    {% if r.overtime_hours %}
+                    <b style="color:var(--orange)">{{ r.overtime_hours|floatformat:1 }}</b>
+                    <span style="color:var(--muted);font-size:11px">
+                        · {{ r.overtime_people }} чел.
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>{% if r.util is not None %}{{ r.util }}%{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ══════════ СВЕРХУРОЧНЫЕ ЗА МЕСЯЦ ══════════ #}
+{% if overtime_grand.count %}
+<div class="card" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <h3 style="margin:0">
+            🚨 Сверхурочные · {{ overtime_month }}
+        </h3>
+        <div style="display:flex;gap:18px;flex-wrap:wrap">
+            <div style="text-align:right">
+                <div style="font-size:24px;font-weight:800;color:var(--orange)">
+                    {{ overtime_grand.hours|floatformat:1 }} ч
+                </div>
+                <div style="color:var(--muted);font-size:11px">за месяц</div>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:24px;font-weight:800">
+                    {{ overtime_grand.count }}
+                </div>
+                <div style="color:var(--muted);font-size:11px">
+                    записей в {{ overtime_grand.days }} дн.
+                </div>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:24px;font-weight:800">
+                    {{ overtime_grand.departments }}
+                </div>
+                <div style="color:var(--muted);font-size:11px">отделов</div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Топ отделов ── #}
+    <table>
+        <thead>
+        <tr>
+            <th>Отдел</th>
+            <th style="width:60px" class="num">Людей</th>
+            <th style="width:70px" class="num">Записей</th>
+            <th style="width:110px">Часы за месяц</th>
+            <th style="width:80px" class="num">Часов</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for d in overtime_by_dep %}
+        <tr>
+            <td><b>{{ d.dep }}</b></td>
+            <td class="num">{{ d.people }}</td>
+            <td class="num">{{ d.count }}</td>
+            <td>
+                <div style="height:8px;border-radius:999px;
+                            background:color-mix(in srgb,var(--line) 70%,transparent);
+                            overflow:hidden">
+                    <div style="height:100%;border-radius:999px;
+                                background:var(--orange);
+                                width:{% widthratio d.hours overtime_grand.hours 100 %}%"></div>
+                </div>
+            </td>
+            <td class="num">
+                <b style="color:var(--orange)">{{ d.hours|floatformat:1 }}</b>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {# ── По дням ── #}
+    <h4 style="margin:18px 0 10px;font-size:14px">По дням</h4>
+    <table>
+        <thead>
+        <tr>
+            <th style="width:110px">Дата</th>
+            <th style="width:70px" class="num">Часов</th>
+            <th style="width:70px" class="num">Записей</th>
+            <th>Кто больше всего</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for d in overtime_days %}
+        <tr>
+            <td style="white-space:nowrap">{{ d.date|date:'d.m.Y' }}
+                <span style="color:var(--muted);font-size:11px">
+                    · {{ d.date|date:'D' }}
+                </span>
+            </td>
+            <td class="num"><b style="color:var(--orange)">{{ d.hours|floatformat:1 }}</b></td>
+            <td class="num">{{ d.count }}</td>
+            <td>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;
+                            font-size:12px;color:var(--muted)">
+                    {% for dep, h in d.deps.items %}
+                    <span>
+                        <b style="color:var(--ink)">{{ dep }}</b> · {{ h|floatformat:1 }} ч
+                    </span>
+                    {% endfor %}
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <p style="color:var(--muted);font-size:12px;margin:12px 0 0">
+        Сверхурочные вносит руководитель отдела на странице
+        «⏱ Сверхурочные». Начальник завода видит свод по всем отделам.
+        Подробный журнал по конкретному отделу — у его руководителя.
+    </p>
+</div>
+{% else %}
+<div class="card" style="margin-top:18px;text-align:center;
+            color:var(--muted);padding:24px 0">
+    🚨 За {{ overtime_month }} сверхурочных не зафиксировано.
+</div>
+{% endif %}
+{% endblock %}

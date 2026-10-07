@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Отчёт за "|add:month_label %}
+
+{% include 'manager/_reports_subnav.html' %}
+
+{% if wasted %}
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3>{{ wasted.count }}</h3><p class="mb-0">Отменённых с работой</p>
+    </div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3 style="color:var(--red)">{{ wasted.fact_hours }} ч</h3><p class="mb-0">Ресурс впустую (факт)</p>
+    </div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3>{{ wasted.plan_hours }} ч</h3><p class="mb-0">Планировали (отменённые)</p>
+    </div></div></div>
+</div>
+{% endif %}
+
+<div class="card" style="padding:0">
+    <div class="table-responsive">
+        <table>
+            <thead>
+            <tr><th>Сотрудник</th><th>Закрыто задач</th><th>План, ч</th><th>Факт, ч</th><th>Цех, ч</th><th>KPI</th></tr>
+            </thead>
+            <tbody>
+            {% for r in reports %}
+            <tr>
+                <td>{{ r.user.full_name }}</td>
+                <td>{{ r.cnt }}</td>
+                <td>{{ r.plan|floatformat:1 }}</td>
+                <td>{{ r.fact|floatformat:1 }}</td>
+                <td>{% if r.shop %}{{ r.shop|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td>{% if r.kpi %}{% if r.kpi > 300 %}&gt;300{% else %}{{ r.kpi }}{% endif %}%{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            <tr style="background:var(--soft);font-weight:700">
+                <th>Итого</th>
+                <td>{{ totals.cnt }}</td>
+                <td>{{ totals.plan|floatformat:1 }}</td>
+                <td>{{ totals.fact|floatformat:1 }}</td>
+                <td>{% if totals.shop %}{{ totals.shop|floatformat:1 }}{% else %}—{% endif %}</td>
+                <td>{% if totals.kpi %}{% if totals.kpi > 300 %}&gt;300{% else %}{{ totals.kpi }}{% endif %}%{% else %}—{% endif %}</td>
+            </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
+    <button type="button" onclick="window.print()" class="btn gray">🖨️ Печать / PDF</button>
+    <a href="{% url 'manager_reports_csv' %}" class="btn blue">⬇️ Скачать (CSV)</a>
+</div>
+{% endblock %}

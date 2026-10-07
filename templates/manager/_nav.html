@@ -1,0 +1,89 @@
+{% with url_name=request.resolver_match.url_name %}
+<div style="margin-bottom:14px">
+    <h2 style="margin:0 0 10px;font-size:22px;font-weight:800">{{ page_title }}</h2>
+    <div class="mgr-tabs" style="display:flex;gap:6px;flex-wrap:wrap">
+
+        {# ─── Оперативное (все руководители) ─── #}
+        <a class="pill {% if url_name == 'manager_cabinet' %}on{% endif %}"
+           href="{% url 'manager_cabinet' %}">Кабинет</a>
+
+        <a class="pill {% if 'shift_request' in url_name %}on{% endif %}"
+           href="{% url 'shift_requests_list' %}"
+           style="{% if my_shift_requests_count %}color:var(--orange);border-color:var(--orange){% endif %}">
+            📝 Заявки
+            {% if my_shift_requests_count %}
+            <span class="nbadge" style="background:var(--orange)">{{ my_shift_requests_count }}</span>
+            {% endif %}
+        </a>
+
+        <a class="pill {% if url_name == 'manager_team' %}on{% endif %}"
+           href="{% url 'manager_team' %}">👥 Команда</a>
+
+        <a class="pill {% if url_name == 'manager_review' %}on{% endif %}"
+           href="{% url 'manager_review' %}">
+            🔍 Приёмка
+            {% if review_count %}<span class="nbadge">{{ review_count }}</span>{% endif %}
+        </a>
+
+        <a class="pill {% if url_name == 'manager_flow' %}on{% endif %}"
+           href="{% url 'manager_flow' %}">⏳ Возраст задач</a>
+
+        <a class="pill {% if url_name == 'manager_workload' %}on{% endif %}"
+           href="{% url 'manager_workload' %}">🗓 Загрузка отдела</a>
+
+        <a class="pill {% if url_name == 'manager_load' %}on{% endif %}"
+           href="{% url 'manager_load' %}">📊 Загруженность</a>
+
+        <a class="pill {% if url_name == 'manager_overtime' %}on{% endif %}"
+           href="{% url 'manager_overtime' %}">⏱ Сверхурочные</a>
+
+        <a class="pill {% if 'manager_sessions' in url_name %}on{% endif %}"
+           href="{% url 'manager_sessions' %}">📊 Сессии</a>
+
+        {# ─── Аналитика (все руководители) ─── #}
+        <a class="pill {% if url_name == 'task_timeline' %}on{% endif %}"
+           href="{% url 'task_timeline' %}">📊 Хронология задач</a>
+
+        <a class="pill {% if url_name == 'manager_orders_timeline' %}on{% endif %}"
+           href="{% url 'manager_orders_timeline' %}">📅 Гант заказов</a>
+
+        <a class="pill {% if url_name == 'manager_task_logs' %}on{% endif %}"
+           href="{% url 'manager_task_logs' %}">📋 Логи задач</a>
+
+        <a class="pill {% if url_name == 'manager_reports' or url_name == 'quarterly_report' or url_name == 'yearly_report' or url_name == 'historical_reports' or url_name == 'manager_orders_report' %}on{% endif %}"
+           href="{% url 'manager_reports' %}">📄 Отчёты</a>
+
+        <a class="pill {% if url_name == 'manager_orders_report' %}on{% endif %}"
+           href="{% url 'manager_orders_report' %}">📦 Отчёт по заказам</a>
+
+        {# ─── Только начальник завода ─── #}
+        {% if user.can_plant %}
+        <a class="pill {% if url_name == 'manager_department_hours' %}on{% endif %}"
+           href="{% url 'manager_department_hours' %}">⏱ Нормы часов</a>
+
+        <a class="pill {% if 'manager_schedule' in url_name and url_name != 'manager_schedule_today' %}on{% endif %}"
+           href="{% url 'manager_schedules' %}">🗓 Графики работы</a>
+
+        <a class="pill {% if url_name == 'manager_schedule_today' %}on{% endif %}"
+           href="{% url 'manager_schedule_today' %}">👥 Кто сегодня</a>
+
+        <a class="pill {% if url_name == 'manager_analytics' %}on{% endif %}"
+           href="{% url 'manager_analytics' %}">📈 Динамика</a>
+
+        <a class="pill {% if url_name == 'manager_dept_dynamics' %}on{% endif %}"
+           href="{% url 'manager_dept_dynamics' %}">📉 Динамика отдела</a>
+
+        <a class="pill {% if url_name == 'manager_plant' %}on{% endif %}"
+           href="{% url 'manager_plant' %}">🏭 Завод</a>
+
+        <a class="pill {% if url_name == 'manager_plant_live' %}on{% endif %}"
+           href="{% url 'manager_plant_live' %}">🟢 Кто где</a>
+        {% else %}
+        {# Для department manager: онлайн по своему отделу #}
+        <a class="pill {% if url_name == 'manager_online' %}on{% endif %}"
+           href="{% url 'manager_online' %}">🟢 Онлайн</a>
+        {% endif %}
+
+    </div>
+</div>
+{% endwith %}

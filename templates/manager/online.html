@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' %}
+
+<style>
+    .on-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+    @media(max-width:900px){.on-grid{grid-template-columns:1fr}}
+    .on-card{border-radius:14px;padding:12px 14px;border:1px solid var(--line);
+             background:var(--soft);margin-bottom:8px;display:flex;justify-content:space-between;
+             gap:12px;flex-wrap:wrap;align-items:flex-start}
+    .on-card.online{border-color:color-mix(in srgb,var(--green) 40%,var(--line));
+                    background:color-mix(in srgb,var(--green) 6%,var(--soft))}
+    .on-card.idle{border-color:color-mix(in srgb,var(--orange) 40%,var(--line));
+                  background:color-mix(in srgb,var(--orange) 5%,var(--soft))}
+    .on-ava{display:inline-flex;width:34px;height:34px;border-radius:999px;
+            background:linear-gradient(135deg,var(--blue),var(--green));
+            color:#fff;font-weight:800;font-size:13px;align-items:center;
+            justify-content:center;margin-right:10px;vertical-align:middle}
+    .on-name{font-weight:700}
+    .on-meta{color:var(--muted);font-size:12px}
+    .on-task{font-size:12px;color:var(--blue);text-decoration:none;font-weight:700}
+    .on-task:hover{text-decoration:underline}
+    .on-hint{color:var(--muted);font-size:12px;margin:0 0 10px}
+</style>
+
+<div class="card">
+    <h3 style="margin:0 0 12px">Кто онлайн · {{ online_count }}</h3>
+    <p class="on-hint">«Онлайн» — активность за последние 15 минут.</p>
+
+    <div class="on-grid">
+        <div>
+            {% for row in online_rows %}
+            <div class="on-card {% if row.idle_since %}idle{% else %}online{% endif %}">
+                <div style="flex:1 1 260px">
+                    <div>
+                        <span class="on-ava">{{ row.user.full_name|slice:':1'|upper }}</span>
+                        <span class="on-name">{{ row.user.full_name }}</span>
+                        <span class="on-meta"> · {% if row.idle_since %}простой{% else %}активен{% endif %}</span>
+                    </div>
+                    <div class="on-meta">
+                        {{ row.user.email }}
+                        {% if row.user.department %} · {{ row.user.department.name }}{% endif %}
+                    </div>
+                    {% if row.task %}
+                    <div style="margin-top:6px">
+                        <a class="on-task" href="/tasks/task/{{ row.task.pk }}/" target="_blank">
+                            ▶ {{ row.task.title|truncatechars:70 }}
+                        </a>
+                    </div>
+                    {% endif %}
+                    {% if row.shop %}
+                    <div style="margin-top:4px">
+                        <a class="on-task" href="/tasks/task/{{ row.shop.task.pk }}/" target="_blank">
+                            🏭 В цеху с {{ row.shop.started_at|date:'H:i' }}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div style="text-align:right">
+                    <div class="on-meta">последняя активность</div>
+                    <div style="font-weight:700">{{ row.last_activity_at|date:'H:i:s' }}</div>
+                    {% if row.idle_since %}
+                    <div class="on-meta">idle с {{ row.idle_since|date:'H:i:s' }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div style="color:var(--muted);text-align:center;padding:24px 0">
+                Сейчас никого нет онлайн.
+            </div>
+            {% endfor %}
+        </div>
+
+        <div>
+            <h4 style="margin:0 0 8px;font-size:14px">Заходили за последний час</h4>
+            {% for u in recent_users %}
+            <div style="display:flex;justify-content:space-between;padding:6px 0;
+                        border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent);
+                        font-size:13px;gap:8px">
+                <span><b>{{ u.full_name }}</b>
+                <span class="on-meta"> · {{ u.department.name|default:'—' }}</span></span>
+                <span class="on-meta">{{ u.last_activity_at|date:'H:i' }}</span>
+            </div>
+            {% empty %}
+            <div style="color:var(--muted);font-size:13px">Никого.</div>
+            {% endfor %}
+
+            <h4 style="margin:16px 0 8px;font-size:14px">Давно не заходили</h4>
+            {% for u in stale_users %}
+            <div style="display:flex;justify-content:space-between;padding:6px 0;
+                        border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent);
+                        font-size:13px;gap:8px">
+                <span><b>{{ u.full_name }}</b>
+                <span class="on-meta"> · {{ u.department.name|default:'—' }}</span></span>
+                <span class="on-meta">
+                    {% if u.last_activity_at %}{{ u.last_activity_at|date:'d.m.Y' }}{% else %}никогда{% endif %}
+                </span>
+            </div>
+            {% empty %}
+            <div style="color:var(--muted);font-size:13px">Все заходили недавно.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

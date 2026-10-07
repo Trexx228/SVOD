@@ -1,0 +1,226 @@
+<style>
+    /* ── Рейтинг (вверху) ── */
+    .mo-rating-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .mo-rating-tbl th,.mo-rating-tbl td{
+        padding:7px 10px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:top;
+    }
+    .mo-rating-tbl th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .mo-rating-tbl tbody tr:hover{background:var(--soft)}
+    .mo-rating-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+    .mo-rating-tbl .place{font-size:16px;font-weight:800;width:50px}
+    .mo-rating-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .mo-rating-tbl a:hover{text-decoration:underline}
+
+    /* ── Достижения ── */
+    .ach{display:flex;gap:12px;align-items:center;padding:10px;border-radius:12px;margin-bottom:8px;background:var(--soft)}
+    .ach.locked{opacity:.55}
+    .ach .ico{font-size:30px}
+    .ach .st{margin-left:auto;font-size:12px;font-weight:700;color:var(--muted);text-align:right}
+
+    /* ── Уровни ── */
+    .lvl{display:flex;justify-content:space-between;padding:8px 12px;border-radius:10px;margin-bottom:6px;background:var(--soft)}
+    .lvl.current{background:var(--softblue);font-weight:800}
+
+    /* ── Ритм ── */
+    .dots{display:flex;gap:6px;flex-wrap:wrap}
+    .dot{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+         font-size:11px;font-weight:700;background:var(--soft);color:var(--muted)}
+    .dot.ok{background:var(--green);color:#fff}
+
+    /* ── Кудосы ── */
+    .kudo{border-left:3px solid var(--green);padding:6px 10px;background:var(--soft);
+          border-radius:0 10px 10px 0;margin-bottom:8px}
+    .kudo.out{border-left-color:var(--blue)}
+
+    /* ── Прочее ── */
+    .bucket{padding:8px 12px;border-radius:10px;background:var(--soft)}
+    .bucket b{font-size:20px;display:block}
+    .bucket .overline{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .bucket.warn{background:color-mix(in srgb,var(--orange) 12%,var(--soft))}
+    [id]{scroll-margin-top:84px}
+</style>
+
+{# ══════════ РЕЙТИНГ СОТРУДНИКОВ МЕСЯЦА ══════════ #}
+<div class="card">
+    <h3 style="margin:0 0 12px">🏆 Рейтинг сотрудников месяца</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+        По количеству закрытых задач и объёму плана. KPI — для контекста
+        (план/факт при факте ≥ 1 ч).
+    </p>
+
+    {% if rating_rows %}
+    <div style="overflow-x:auto">
+        <table class="mo-rating-tbl">
+            <thead>
+            <tr>
+                <th>Место</th>
+                <th>Сотрудник</th>
+                <th>Должность</th>
+                <th>Подразделение</th>
+                <th class="num">Закрыто</th>
+                <th class="num">Объём плана, ч</th>
+                <th class="num">KPI</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rating_rows %}
+            <tr>
+                <td class="place">{{ r.place }}</td>
+                <td>{{ r.executor__full_name }}</td>
+                <td>{{ r.position }}</td>
+                <td>{{ r.department }}</td>
+                <td class="num">{{ r.closed }}</td>
+                <td class="num">{{ r.plan|floatformat:1 }}</td>
+                <td class="num">
+                    {% if r.kpi %}{% if r.kpi > 300 %}>300{% else %}{{ r.kpi }}{% endif %}%{% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--muted);margin:0">
+        За месяц ещё нет закрытых задач — станьте первым!
+    </p>
+    {% endif %}
+</div>
+
+{# ══════════ KPI ЗА МЕСЯЦ ══════════ #}
+<div class="card" id="kpi">
+    <h3>KPI за месяц: {% if kpi %}{% if kpi > 300 %}&gt;300{% else %}{{ kpi }}{% endif %}%{% else %}ещё накапливается{% endif %}</h3>
+    <p style="color:var(--muted);font-size:13px">
+        План {{ kpi_plan|floatformat:2 }} ч / факт {{ kpi_fact|floatformat:2 }} ч по закрытым задачам.
+        KPI = план / факт, здоровая зона 90–110%: ниже — не уложились в оценку, выше — переработка.
+        Показатель включается при факте ≥ 1 ч: в факт попадает только время сеансов таймера.
+    </p>
+    <table>
+        <tr><th>Закрытая задача</th><th>Дата</th><th>План, ч</th><th>Факт, ч</th></tr>
+        {% for t in closed30 %}
+        <tr>
+            <td>{{ t.title }}</td>
+            <td>{{ t.finished_at|date:'d.m.Y' }}</td>
+            <td>{{ t.plan_hours|floatformat:2 }}</td>
+            <td>{{ t.accumulated_hours|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">За месяц закрытых задач нет.</td></tr>
+        {% endfor %}
+    </table>
+</div>
+
+{# ══════════ УРОВЕНЬ ══════════ #}
+<div class="card" id="level">
+    <h3>Уровень: {{ level.name }}</h3>
+    <div style="height:10px;border-radius:999px;background:var(--line);overflow:hidden">
+        <i style="display:block;height:100%;width:{{ level.progress|floatformat:0 }}%;
+              background:linear-gradient(90deg,var(--green),color-mix(in srgb,var(--green) 65%,#000))"></i>
+    </div>
+    <p style="color:var(--muted);font-size:13px">{{ level.label }}</p>
+    {% for l in levels %}
+    <div class="lvl {% if l.current %}current{% endif %}">
+        <span>{{ l.name }}</span>
+        <span>от {{ l.hours }} ч закрытых задач {% if l.reached %}✓{% endif %}</span>
+    </div>
+    {% endfor %}
+</div>
+
+{# ══════════ РИТМ ══════════ #}
+<div class="card" id="streak">
+    <h3>Ритм</h3>
+    {% if streak and streak.current_days %}
+    <p style="font-size:18px;margin:0">🔥 {{ streak.current_days }} дн. без просрочек · рекорд {{ streak.best_days }}</p>
+    {% else %}
+    <p style="color:var(--muted);margin:0">Серия не начата: закройте задачу в срок.</p>
+    {% endif %}
+    <p style="color:var(--muted);font-size:13px;margin-top:8px">
+        Последние 14 дней (зелёным — в этот день что-то закрыто в срок):</p>
+    <div class="dots">
+        {% for d in days %}
+        <div class="dot {% if d.ok %}ok{% endif %}" title="{{ d.label }}">{{ d.label|slice:':2' }}</div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ══════════ ДОСТИЖЕНИЯ ══════════ #}
+<div class="card" id="achievements">
+    <h3>Достижения: получены и ещё закрытые</h3>
+    {% for a in achievements %}
+    <div class="ach {% if not a.awarded %}locked{% endif %}">
+        <span class="ico">{% if a.awarded %}{{ a.ach.icon }}{% else %}🔒{% endif %}</span>
+        <span><b>{{ a.ach.title }}</b><br>
+      <span style="color:var(--muted);font-size:13px">{{ a.ach.description }}</span></span>
+        <span class="st">{% if a.awarded %}получено<br>{{ a.awarded|date:'d.m.Y' }}{% else %}ещё нет{% endif %}</span>
+    </div>
+    {% empty %}
+    <p style="color:var(--muted)">Каталог пуст: выполните <code>.\dev.bat recalc_gamify</code>.</p>
+    {% endfor %}
+</div>
+
+{# ══════════ КУДОСЫ ══════════ #}
+<div class="card" id="kudos">
+    <h3>Приходившие благодарности</h3>
+    {% for k in kudos_in %}
+    <div class="kudo">
+        <b>{{ k.from_user.full_name }}</b>
+        <span style="color:var(--muted);font-size:12px">{{ k.created_at|date:'d.m.Y H:i' }}</span>
+        <div>{{ k.text }}</div>
+    </div>
+    {% empty %}
+    <p style="color:var(--muted)">Пока пусто — всё впереди.</p>
+    {% endfor %}
+
+    <h3 style="margin-top:16px">Кого благодарил(а) я</h3>
+    {% for k in kudos_out %}
+    <div class="kudo out">
+        <b>→ {{ k.to_user.full_name }}</b>
+        <span style="color:var(--muted);font-size:12px">{{ k.created_at|date:'d.m.Y H:i' }}</span>
+        <div>{{ k.text }}</div>
+    </div>
+    {% empty %}
+    <p style="color:var(--muted)">Ещё никого — а зря, это приятно.</p>
+    {% endfor %}
+</div>
+
+{# ══════════ ЗЕРКАЛО: динамика и качество ══════════ #}
+<div class="card" id="mirror">
+    <h3>Моё зеркало: динамика и качество за месяц</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+        <div class="bucket"><b>{% if otd is not None %}{{ otd }}%{% else %}—{% endif %}</b>
+            <span class="overline">закрыто в срок</span></div>
+        <div class="bucket"><b>{% if accuracy is not None %}{{ accuracy }}%{% else %}—{% endif %}</b>
+            <span class="overline">точность оценок ±20%</span></div>
+        <div class="bucket"><b>{{ rework_n }}</b><span class="overline">возвратов</span></div>
+        <div class="bucket {% if over_week %}warn{% endif %}"><b>{{ h_week|floatformat:1 }}</b>
+            <span class="overline">часов за неделю (норма {{ norm|floatformat:0 }}×{{ bd_week }})</span></div>
+    </div>
+    <div class="chart" style="display:flex;align-items:flex-end;gap:6px;height:90px">
+        {% for w in weeks %}<div style="flex:1;min-height:4px;border-radius:6px 6px 0 0;height:{{ w.pct }}%;
+      background:linear-gradient(180deg,var(--green),color-mix(in srgb,var(--green) 55%,#000))"
+                                 title="{{ w.label }}: {{ w.hours }} ч"></div>{% endfor %}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:4px">
+        {% for w in weeks %}<span style="flex:1;text-align:center;font-size:10px;color:var(--muted)">{{ w.label }}</span>{% endfor %}
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:10px">
+        Это ваше личное зеркало: сравнение с собой прошлым, а не с коллегами.
+        {% if over_week %}На этой неделе часов больше нормы — проверьте, не переработка ли это.{% endif %}</p>
+    {% if kind_acc %}
+    <span class="overline" style="display:block;margin:12px 0 6px">Точность моих оценок по видам работ</span>
+    <table>
+        {% for a in kind_acc %}
+        <tr><td>{{ a.label }}{% if worst and a.label == worst.label %} ⚠️ системно недооцениваю{% endif %}</td>
+            <td><b>{{ a.pct }}%</b> ({{ a.n }})</td></tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+    {% if next_task %}
+    <p style="margin:12px 0 0">Что взять следующим:
+        <a href="{% url 'task_detail' next_task.pk %}"><b>{{ next_task.title }}</b></a>
+        {% if next_task.due %}(срок {{ next_task.due|date:'d.m.Y' }}){% endif %} — ближайший срок и высший приоритет в вашей очереди.</p>
+    {% endif %}
+</div>

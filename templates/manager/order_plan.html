@@ -1,0 +1,627 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+    /* ── Шапка заказа ── */
+    .op-head{display:flex;justify-content:space-between;align-items:flex-start;
+             gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    .op-head h2{margin:8px 0 0;font-size:22px;font-weight:800}
+    .op-sub{color:var(--muted);font-size:13px;margin-top:4px}
+
+    /* ── Плитки сводки ── */
+    .op-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+              gap:10px;margin-bottom:16px}
+    .op-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;
+             padding:10px 14px}
+    .op-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;
+                letter-spacing:.4px;font-weight:700}
+    .op-stat .v{font-size:20px;font-weight:800;margin-top:2px}
+    .op-stat .h{color:var(--muted);font-size:11px;margin-top:2px}
+
+    /* ── Что делать сейчас ── */
+    .op-now{background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border:1px solid color-mix(in srgb,var(--blue) 40%,var(--line));
+            border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:13px}
+    .op-now .t{font-weight:800;font-size:14px;margin-bottom:4px}
+
+    /* ── Направление (ветка) ── */
+    .dir{background:var(--card);border:1px solid var(--line);border-radius:16px;
+         box-shadow:var(--shadow);padding:16px 18px;margin-bottom:16px}
+    .dir-head{display:flex;justify-content:space-between;align-items:center;
+              gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .dir-head h3{margin:0;font-size:15px;font-weight:800;display:flex;
+                 align-items:center;gap:8px}
+    .dir-head .n{color:var(--muted);font-weight:600;font-size:12px}
+    .dir-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+    /* ── Лента этапов ── */
+    .stages{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;
+            gap:0;min-height:44px}
+    .stages:empty::before{content:'Перетащите сюда этап из другой ветки или добавьте новый';
+                          color:var(--muted);font-size:12px;padding:12px;
+                          display:block;text-align:center;
+                          border:1px dashed var(--input);border-radius:10px;margin:6px 0}
+
+    .stage{display:grid;grid-template-columns:20px 38px 1fr auto;gap:10px;
+           align-items:flex-start;padding:12px 8px 12px 0;position:relative;
+           background:var(--card);border-radius:10px;
+           transition:background .12s}
+    .stage + .stage{margin-top:2px}
+    .stage:not(:last-child){border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
+
+    /* SortableJS: полупрозрачность при перетаскивании */
+    .stage.sortable-ghost{opacity:.4;
+                          background:var(--softblue)}
+    .stage.sortable-chosen{box-shadow:0 8px 24px rgba(0,0,0,.25)}
+
+    /* ── Ручка перетаскивания ── */
+    .drag-handle{
+        cursor:grab;user-select:none;color:var(--muted);
+        display:inline-flex;align-items:center;justify-content:center;
+        width:18px;height:32px;font-size:16px;line-height:1;
+        border-radius:6px;transition:color .12s,background .12s;
+    }
+    .drag-handle:hover{color:var(--blue);background:var(--softblue)}
+    .drag-handle:active{cursor:grabbing}
+
+    .stage .num{
+        width:32px;height:32px;border-radius:999px;display:inline-flex;
+        align-items:center;justify-content:center;font-weight:800;font-size:14px;
+        background:var(--line);color:var(--muted);flex:none;
+    }
+    .stage.done .num{background:var(--green);color:#fff}
+    .stage.work .num{background:var(--blue);color:#fff}
+    .stage.review .num{background:var(--orange);color:#fff}
+    .stage.over .num{background:var(--red);color:#fff}
+    .stage.blocked .num{background:var(--line);color:var(--muted)}
+
+    .stage .body{min-width:0}
+    .stage .body .title{font-weight:700;font-size:14px}
+    .stage .body .title a{color:var(--ink);text-decoration:none}
+    .stage .body .title a:hover{color:var(--blue)}
+    .stage .body .meta{color:var(--muted);font-size:12px;margin-top:4px;
+                       display:flex;gap:10px;flex-wrap:wrap}
+    .stage .body .meta b{color:var(--ink)}
+    .stage.done{opacity:.75}
+
+    .stage .tag{display:inline-block;padding:2px 8px;border-radius:999px;
+                font-size:11px;font-weight:700;margin-left:6px;
+                background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+    .stage .tag.done{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .stage .tag.work{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .stage .tag.review{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .stage .tag.over{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+    .stage .tag.blocked{background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+
+    .stage .acts{display:flex;gap:2px;flex-shrink:0}
+    .stage .acts a{display:inline-flex;width:26px;height:26px;align-items:center;
+                   justify-content:center;border-radius:6px;color:var(--muted);
+                   background:var(--card);border:1px solid var(--line);
+                   text-decoration:none;font-weight:800;font-size:13px;
+                   transition:all .12s}
+    .stage .acts a:hover{color:var(--blue);border-color:var(--blue);background:var(--softblue)}
+
+    /* ── Добавить этап ── */
+    .add-stage{background:var(--soft);border:1px dashed var(--input);border-radius:12px;
+               padding:12px 14px;margin-top:12px}
+    .add-stage summary{cursor:pointer;color:var(--blue);font-weight:700;font-size:13px;
+                       list-style:none}
+    .add-stage summary::-webkit-details-marker{display:none}
+    .add-stage summary::before{content:'+ ';font-weight:800}
+    .add-stage[open] summary{margin-bottom:10px}
+    .add-stage .row{display:grid;grid-template-columns:1.6fr 1fr 1.4fr 90px 140px auto;
+                    gap:8px;align-items:end}
+    @media(max-width:1000px){.add-stage .row{grid-template-columns:1fr 1fr}}
+    @media(max-width:600px){.add-stage .row{grid-template-columns:1fr}}
+    .add-stage .row label{font-size:11px;color:var(--muted);text-transform:uppercase;
+                          letter-spacing:.4px;font-weight:700;margin:0 0 4px}
+    .add-stage .row input,.add-stage .row select{
+        font-size:13px;padding:8px 10px;border-radius:8px;
+    }
+    .add-stage .hint{color:var(--muted);font-size:11px;margin:8px 0 0}
+
+    /* ── Новая ветка ── */
+    .new-dir{background:var(--soft);border:1px dashed var(--input);border-radius:14px;
+             padding:14px 18px;margin-bottom:16px}
+    .new-dir summary{cursor:pointer;color:var(--blue);font-weight:700;font-size:13px;
+                     list-style:none}
+    .new-dir summary::-webkit-details-marker{display:none}
+    .new-dir summary::before{content:'+ ';font-weight:800}
+    .new-dir[open] summary{margin-bottom:10px}
+    .new-dir form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .new-dir input{flex:1 1 260px;max-width:400px}
+
+    /* ── Плашка-тост ── */
+    .op-toast{position:fixed;right:24px;bottom:24px;z-index:200;
+              padding:10px 16px;border-radius:12px;font-weight:700;font-size:13px;
+              background:var(--card);border:1px solid var(--line);
+              box-shadow:0 12px 32px rgba(0,0,0,.35);
+              opacity:0;transform:translateY(6px);pointer-events:none;
+              transition:opacity .2s,transform .2s}
+    .op-toast.show{opacity:1;transform:none}
+    .op-toast.ok{border-left:4px solid var(--green);color:var(--green)}
+    .op-toast.err{border-left:4px solid var(--red);color:var(--red)}
+    .op-toast.info{border-left:4px solid var(--blue);color:var(--blue)}
+
+        /* ── Модал подтверждения ── */
+    .op-modal{
+        position:fixed;inset:0;z-index:200;
+        background:rgba(0,0,0,.65);
+        display:flex;align-items:center;justify-content:center;
+        padding:24px;animation:opFade .18s ease-out;
+    }
+    .op-modal[hidden]{display:none}
+    @keyframes opFade{from{opacity:0}to{opacity:1}}
+    .op-modal-card{
+        background:var(--card);border:1px solid var(--line);
+        border-radius:18px;padding:24px 28px;
+        max-width:460px;width:100%;
+        box-shadow:0 24px 64px rgba(0,0,0,.5);
+        animation:rise .22s ease-out;
+    }
+    .op-modal-card h3{margin:0 0 10px;font-size:18px;font-weight:800}
+    .op-modal-card p{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 20px}
+    .op-modal-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .op-modal-actions .btn{flex:1 1 160px;text-align:center}
+
+        /* ── Плашка «Есть изменения» ── */
+    .save-bar{
+        position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+        z-index:150;display:flex;align-items:center;gap:16px;
+        padding:12px 20px;border-radius:14px;
+        background:var(--card);border:1px solid var(--line);
+        box-shadow:0 12px 40px rgba(0,0,0,.45);
+        font-size:14px;font-weight:700;color:var(--ink);
+        animation:rise .2s ease-out;
+        max-width:calc(100vw - 32px);
+    }
+    .save-bar[hidden]{display:none}
+    @media(max-width:600px){
+        .save-bar{flex-direction:column;gap:8px;padding:12px 14px;text-align:center}
+        .save-bar > div{width:100%;justify-content:center}
+    }
+</style>
+
+{% include 'manager/_nav.html' with page_title="План заказа" %}
+
+{# ──────── Шапка ──────── #}
+<div class="op-head">
+    <div>
+        <a class="pill" href="{% url 'manager_orders' %}">← Все заказы</a>
+        <a class="pill" href="{% url 'settings_order_detail' order.pk %}"
+           title="Полная карточка: контрольные точки, ветки, задачи">
+            📋 Карточка заказа
+        </a>
+        <h2>Заказ {{ order.number }}</h2>
+        <div class="op-sub">{{ order.product }}</div>
+    </div>
+    {% if order.comment %}
+    <div style="flex:1 1 300px;color:var(--muted);font-size:13px;max-width:520px">
+        {{ order.comment }}
+    </div>
+    {% endif %}
+</div>
+
+{# ──────── Сводка ──────── #}
+<div class="op-stats">
+    <div class="op-stat">
+        <div class="l">Отгрузка</div>
+        <div class="v">{{ order.ship_due|date:'d.m.Y'|default:'—' }}</div>
+    </div>
+    <div class="op-stat">
+        <div class="l">Всего работ</div>
+        <div class="v">{{ tasks|length }}</div>
+        <div class="h">закрыто {{ done_cnt }}</div>
+    </div>
+    <div class="op-stat">
+        <div class="l">План / Факт</div>
+        <div class="v">{{ plan_sum|floatformat:0 }} / {{ fact_sum|floatformat:0 }}</div>
+        <div class="h">часов</div>
+    </div>
+</div>
+
+{# ──────── Что делать сейчас ──────── #}
+{% if current_stage %}
+<div class="op-now">
+    <div class="t">▶ Сейчас в работе</div>
+    <a href="{% url 'task_detail' current_stage.pk %}" style="color:var(--ink);font-weight:700">
+        {{ current_stage.title }}
+    </a>
+    · {{ current_stage.executor.full_name }}
+    {% if current_stage.due %}· срок <b>{{ current_stage.due|date:'d.m.Y' }}</b>{% endif %}
+    {% if current_stage.due and current_stage.due < today %}
+    <span style="color:var(--red);font-weight:700">· просрочен</span>
+    {% endif %}
+</div>
+{% endif %}
+
+{# Подсказка про drag-n-drop — показывается один раз при первом заходе #}
+{% if branches %}
+<div style="background:color-mix(in srgb,var(--blue) 6%,var(--soft));
+            border:1px solid color-mix(in srgb,var(--blue) 30%,var(--line));
+            border-radius:10px;padding:8px 14px;margin-bottom:14px;
+            font-size:12px;color:var(--muted);display:flex;
+            justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <span>💡 <b style="color:var(--ink)">Тяните за ☰ слева</b>
+        — этапы можно менять местами и перетаскивать между направлениями.
+        Порядок сохраняется автоматически.</span>
+    <button type="button" onclick="this.parentElement.style.display='none'"
+            style="background:none;border:0;cursor:pointer;color:var(--muted);font-size:16px">✕</button>
+</div>
+{% endif %}
+
+{# ──────── Направления (ветки) ──────── #}
+<div id="branches-root">
+    {% for branch in branches %}
+    <div class="dir" data-branch-id="{{ branch.pk }}">
+        <div class="dir-head">
+            <h3>
+                🌿 {{ branch.name }}
+                <span class="n" data-stage-count>{{ branch.tasks.all|length }} этапов</span>
+            </h3>
+            <div class="dir-actions">
+                <form method="post"
+                      action="{% url 'order_branch_delete' order.pk branch.pk %}"
+                      style="margin:0"
+                      data-confirm="Удалить направление «{{ branch.name }}»? Задачи отвяжутся, но не удалятся.">
+                    {% csrf_token %}
+                    <button type="submit" class="btn red" style="padding:4px 12px;font-size:12px">
+                        Удалить направление
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <ol class="stages" data-branch-id="{{ branch.pk }}">
+            {% for t in branch.tasks.all %}
+            <li class="stage
+            {% if t.status == 'done' %}done
+            {% elif t.status == 'cancelled' %}done
+            {% elif t.blocked_by_stage %}blocked
+            {% elif t.status == 'review' %}review
+            {% elif t.due and t.due < today and t.status != 'done' %}over
+            {% else %}work
+            {% endif %}"
+                data-task-id="{{ t.pk }}">
+                <span class="drag-handle" title="Перетащить">☰</span>
+                <span class="num">
+                {% if t.status == 'done' %}✓{% else %}{{ t.stage_order }}{% endif %}
+            </span>
+                <div class="body">
+                    <div class="title">
+                        <a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+                        {% if t.status == 'done' %}
+                        <span class="tag done">✓ готово</span>
+                        {% elif t.blocked_by_stage %}
+                        <span class="tag blocked">🔒 ждёт предыдущий</span>
+                        {% elif t.status == 'review' %}
+                        <span class="tag review">на проверке</span>
+                        {% elif t.due and t.due < today %}
+                        <span class="tag over">просрочен</span>
+                        {% else %}
+                        <span class="tag work">в работе</span>
+                        {% endif %}
+                    </div>
+                    <div class="meta">
+                        <span><b>{{ t.executor.full_name }}</b></span>
+                        <span>план {{ t.plan_hours|floatformat:1 }} ч</span>
+                        {% if t.due %}<span>до {{ t.due|date:'d.m.Y' }}</span>{% endif %}
+                        <span>{{ t.get_status_display }}</span>
+                    </div>
+                </div>
+                <div class="acts">
+                    <a href="{% url 'stage_move' t.pk 'up' %}" title="Выше">↑</a>
+                    <a href="{% url 'stage_move' t.pk 'down' %}" title="Ниже">↓</a>
+                    <a href="{% url 'task_detail' t.pk %}" title="Открыть">✎</a>
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
+
+        {# Форма добавления этапа — одна строка #}
+        <details class="add-stage">
+            <summary>Добавить этап в «{{ branch.name }}»</summary>
+            <form method="post" action="{% url 'order_branch_stages_add' order.pk branch.pk %}">
+                {% csrf_token %}
+                <div class="row">
+                    <div>
+                        <label>Что делаем</label>
+                        <input name="stage_title" placeholder="Например, Подготовка чертежа" required>
+                    </div>
+                    <div>
+                        <label>Подразделение</label>
+                        <select class="stage-dept">
+                            <option value="">— все —</option>
+                            {% for d in departments %}
+                            <option value="{{ d.pk }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Кто делает</label>
+                        <select name="stage_executor" required class="stage-exec">
+                            <option value="">— выберите —</option>
+                            {% for u in users %}
+                            <option value="{{ u.pk }}" data-dept="{{ u.department_id|default:'' }}">{{ u.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>План, ч</label>
+                        <input name="stage_plan" placeholder="8" inputmode="decimal">
+                    </div>
+                    <div>
+                        <label>Срок</label>
+                        <input type="date" name="stage_due">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn green" style="padding:9px 16px">
+                            Добавить
+                        </button>
+                    </div>
+                </div>
+                <p class="hint">
+                    Этап запустится автоматически после закрытия предыдущего.
+                    Если предыдущий просрочен — система спросит руководителя.
+                </p>
+            </form>
+        </details>
+    </div>
+    {% endfor %}
+</div>
+
+{# ──────── Создать направление ──────── #}
+<details class="new-dir" {% if not branches %}open{% endif %}>
+    <summary>Новое направление работ</summary>
+    <form method="post" action="{% url 'order_branch_add' order.pk %}">
+        {% csrf_token %}
+        <input name="name" placeholder="Название — например, «Проектирование» или «Изготовление»"
+               required maxlength="150">
+        <button type="submit" class="btn blue" style="padding:9px 16px">Создать</button>
+    </form>
+    <p style="color:var(--muted);font-size:12px;margin:10px 0 0">
+        Направление — это цепочка этапов, которые идут друг за другом.
+        Если у вас всё делается одной последовательностью — создайте одно направление.
+    </p>
+</details>
+
+{# ──────── Все задачи заказа ──────── #}
+{% if tasks %}
+<div class="card">
+    <details>
+        <summary style="cursor:pointer;font-weight:700">Показать все задачи заказа ({{ tasks|length }})</summary>
+        <table style="margin-top:12px">
+            <thead>
+            <tr>
+                <th>Задача</th><th>Направление</th><th>Этап</th><th>Исполнитель</th>
+                <th>Срок</th><th>Статус</th><th>План, ч</th><th>Факт, ч</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for t in tasks %}
+            <tr>
+                <td>
+                    {% if t.parent_id %}↳ {% endif %}
+                    <a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+                </td>
+                <td>{{ t.branch.name|default:'—' }}</td>
+                <td>{{ t.stage_order|default:'—' }}</td>
+                <td>{{ t.executor.full_name }}</td>
+                <td>{{ t.due|date:'d.m.Y'|default:'—' }}</td>
+                <td>{{ t.get_status_display }}</td>
+                <td>{{ t.plan_hours|floatformat:1 }}</td>
+                <td>{{ t.spent_hours|floatformat:1 }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </details>
+</div>
+{% endif %}
+
+{# ──────── Плашка «Есть несохранённые изменения» ──────── #}
+<div id="save-bar" class="save-bar" hidden>
+    <span id="save-bar-text">Есть несохранённые изменения</span>
+    <div style="display:flex;gap:8px">
+        <button type="button" class="btn green" id="save-btn"
+                style="padding:8px 18px;font-size:13px">
+            💾 Применить
+        </button>
+        <button type="button" class="btn gray" id="cancel-btn"
+                style="padding:8px 18px;font-size:13px">
+            Отменить
+        </button>
+    </div>
+</div>
+
+{# ──────── Модал подтверждения отмены ──────── #}
+<div id="cancel-modal" class="op-modal" hidden>
+    <div class="op-modal-card">
+        <h3>Отменить изменения?</h3>
+        <p>Порядок этапов вернётся к последнему сохранённому состоянию.
+            Это действие нельзя отменить.</p>
+        <div class="op-modal-actions">
+            <button type="button" class="btn red" id="cancel-yes">Да, отменить</button>
+            <button type="button" class="btn gray" id="cancel-no">Продолжить работу</button>
+        </div>
+    </div>
+</div>
+
+{# ──────── Тост ──────── #}
+<div id="op-toast" class="op-toast"></div>
+
+<script src="{% static 'js/sortable.min.js' %}"></script>
+<script>
+    (function(){
+      const CSRF = (document.cookie.match('(^|; )csrftoken=([^;]*)') || [])[2] || '';
+      const REORDER_URL = '{% url "order_stages_reorder" order.pk %}';
+
+      const toast = document.getElementById('op-toast');
+      let toastTimer = null;
+      function showToast(text, kind) {
+        if (!toast) return;
+        toast.textContent = text;
+        toast.className = 'op-toast show ' + (kind || 'ok');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function(){ toast.className = 'op-toast'; }, 2200);
+      }
+
+      function captureOrder(){
+        const items = [];
+        document.querySelectorAll('ol.stages[data-branch-id]').forEach(function(ol){
+          const ids = Array.from(ol.querySelectorAll('li.stage'))
+            .map(function(li){ return parseInt(li.dataset.taskId, 10); })
+            .filter(Boolean);
+          items.push({
+            branch_id: parseInt(ol.dataset.branchId, 10),
+            task_ids: ids,
+          });
+        });
+        return JSON.stringify(items);
+      }
+
+      let savedSnapshot = captureOrder();
+      const bar = document.getElementById('save-bar');
+
+      function isDirty(){
+        return captureOrder() !== savedSnapshot;
+      }
+
+      function refreshBar(){
+        if (!bar) return;
+        bar.hidden = !isDirty();
+      }
+
+      function renumber(){
+        document.querySelectorAll('ol.stages[data-branch-id]').forEach(function(ol){
+          ol.querySelectorAll('li.stage').forEach(function(li, i){
+            const num = li.querySelector('.num');
+            if (num && !num.textContent.trim().startsWith('✓')){
+              num.textContent = i + 1;
+            }
+          });
+          const dir = ol.closest('.dir');
+          if (dir){
+            const cnt = dir.querySelector('[data-stage-count]');
+            if (cnt) cnt.textContent = ol.querySelectorAll('li.stage').length + ' этапов';
+          }
+        });
+      }
+
+      // ── Применить ──
+      const btnSave = document.getElementById('save-btn');
+      if (btnSave){
+        btnSave.addEventListener('click', function(){
+          const payload = JSON.parse(captureOrder());
+          fetch(REORDER_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': CSRF,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({items: payload}),
+          })
+          .then(function(r){
+            if (!r.ok){
+              throw new Error('HTTP ' + r.status);
+            }
+            return r.json();
+          })
+          .then(function(d){
+            if (d && d.ok){
+              savedSnapshot = captureOrder();
+              renumber();
+              refreshBar();
+              showToast('Порядок сохранён', 'ok');
+            } else {
+              showToast('Ошибка: ' + ((d && d.error) || '?'), 'err');
+            }
+          })
+          .catch(function(err){
+            console.error('reorder error:', err);
+            showToast('Ошибка сети', 'err');
+          });
+        });
+      }
+
+      // ── Отменить (с кастомным подтверждением) ──
+      const btnCancel = document.getElementById('cancel-btn');
+      const cancelModal = document.getElementById('cancel-modal');
+      const cancelYes = document.getElementById('cancel-yes');
+      const cancelNo = document.getElementById('cancel-no');
+
+      if (btnCancel && cancelModal){
+        btnCancel.addEventListener('click', function(){
+          cancelModal.hidden = false;
+        });
+      }
+      if (cancelNo && cancelModal){
+        cancelNo.addEventListener('click', function(){
+          cancelModal.hidden = true;
+        });
+      }
+      if (cancelYes){
+        cancelYes.addEventListener('click', function(){
+          // снимаем защиту beforeunload и перезагружаем
+          window.removeEventListener('beforeunload', beforeUnloadHandler);
+          location.reload();
+        });
+      }
+
+      // ── SortableJS ──
+      if (window.Sortable){
+        document.querySelectorAll('ol.stages[data-branch-id]').forEach(function(ol){
+          new Sortable(ol, {
+            group: 'stages',
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: function(){
+              renumber();
+              refreshBar();
+            },
+          });
+        });
+      } else {
+        console.warn('SortableJS не загружен');
+      }
+
+      // ── Уход со страницы (только смена URL / закрытие вкладки) ──
+      function beforeUnloadHandler(e){
+        if (isDirty()){
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      }
+      window.addEventListener('beforeunload', beforeUnloadHandler);
+
+      refreshBar();
+    })();
+</script>
+
+{# ──────── Фильтрация исполнителей по подразделению ──────── #}
+<script>
+    (function(){
+      document.querySelectorAll('.add-stage').forEach(function(form){
+        const dept = form.querySelector('.stage-dept');
+        const exec = form.querySelector('.stage-exec');
+        if (!dept || !exec) return;
+
+        const allOptions = Array.from(exec.options);
+
+        dept.addEventListener('change', function(){
+          const dk = dept.value;
+          exec.innerHTML = '';
+          allOptions.forEach(function(opt){
+            if (!opt.value || !dk || opt.dataset.dept === dk){
+              exec.appendChild(opt.cloneNode(true));
+            }
+          });
+          exec.value = '';
+        });
+      });
+    })();
+</script>
+{% endblock %}

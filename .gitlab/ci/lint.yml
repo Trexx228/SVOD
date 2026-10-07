@@ -1,0 +1,32 @@
+# в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+#  РЎС‚Р°РґРёСЏ LINT: РїСЂРѕРІРµСЂРєР° СЃС‚РёР»СЏ Рё СЃРѕРіР»Р°СЃРѕРІР°РЅРЅРѕСЃС‚Рё РјРёРіСЂР°С†РёР№
+# в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+lint:flake8:
+  stage: lint
+  image: python:$PYTHON_VERSION-slim
+  before_script:
+    - pip install --cache-dir=.pip-cache flake8
+  script:
+    - flake8 --version
+    - |
+      flake8 \
+        --max-line-length=120 \
+        --extend-ignore=E203,W503,E501,W292 \
+        --exclude=migrations,.venv,__pycache__,collected_static \
+        accounts admin_panel cabinet comms config core dashboard gamify manager tasks
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+lint:migrations:
+  stage: lint
+  image: python:$PYTHON_VERSION-slim
+  before_script:
+    - pip install --cache-dir=.pip-cache -r requirements.txt
+  script:
+    - python manage.py makemigrations --check --dry-run
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

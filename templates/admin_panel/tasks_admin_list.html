@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .task-filter{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr auto;gap:10px;
+                 align-items:end;margin-bottom:14px}
+    @media(max-width:1100px){.task-filter{grid-template-columns:1fr 1fr 1fr}}
+    @media(max-width:640px){.task-filter{grid-template-columns:1fr}}
+    .task-filter label{margin:0 0 4px}
+
+    .t-table{width:100%;border-collapse:collapse;font-size:13px}
+    .t-table th,.t-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                            text-align:left;vertical-align:top}
+    .t-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                letter-spacing:.4px;font-weight:700}
+    .t-table tbody tr:hover{background:var(--soft)}
+    .t-title{font-weight:700;color:var(--ink);text-decoration:none}
+    .t-title:hover{color:var(--blue)}
+    .t-meta{color:var(--muted);font-size:12px}
+
+    .t-prio{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .t-prio.low{background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+    .t-prio.medium{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .t-prio.high{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .t-prio.urgent{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+
+    .t-status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;
+              background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+    .t-status.done{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .t-status.in_progress{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .t-status.review{background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange)}
+    .t-status.cancelled{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+
+    .t-overdue{color:var(--red);font-weight:700}
+
+    .bulk-bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;
+              padding:10px 12px;border:1px dashed var(--input);border-radius:12px;
+              margin-bottom:12px;background:var(--soft)}
+    .bulk-bar label{margin:0 0 4px}
+    .bulk-bar .field{min-width:180px}
+    .bulk-bar .hidden{display:none}
+    .t-check{width:18px;height:18px;margin:0;cursor:pointer}
+
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Задачи · {{ total }}</h3>
+        <a class="btn gray"
+           href="{% url 'settings_tasks_export' %}{% if page_qs %}?{{ page_qs }}{% endif %}"
+           title="Экспорт текущего фильтра в CSV">Экспорт CSV</a>
+    </div>
+
+    <form method="get" class="task-filter">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="Заголовок или тело">
+        </div>
+        <div>
+            <label>Статус</label>
+            <select name="status">
+                <option value="">— любой —</option>
+                {% for code, label in status_choices %}
+                <option value="{{ code }}" {% if status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Приоритет</label>
+            <select name="priority">
+                <option value="">— любой —</option>
+                {% for code, label in priority_choices %}
+                <option value="{{ code }}" {% if priority == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Исполнитель</label>
+            <select name="executor">
+                <option value="">— любой —</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}" {% if executor_pk == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Постановщик</label>
+            <select name="requester">
+                <option value="">— любой —</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}" {% if requester_pk == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Срок с</label>
+            <input type="date" name="due_from" value="{{ due_from }}">
+        </div>
+        <div>
+            <label>Срок по</label>
+            <input type="date" name="due_to" value="{{ due_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_tasks_page' %}">Сброс</a>
+        </div>
+    </form>
+
+    <form method="post" action="{% url 'settings_tasks_bulk' %}" id="bulk-form">
+        {% csrf_token %}
+
+        <div class="bulk-bar">
+            <div style="min-width:120px">
+                <div style="font-weight:700">Выбрано: <span id="bulk-count">0</span></div>
+            </div>
+
+            <div class="field">
+                <label>Действие</label>
+                <select name="bulk_action" id="bulk-action">
+                    <option value="">— выберите —</option>
+                    <option value="set_priority">Сменить приоритет</option>
+                    <option value="set_due">Сменить срок</option>
+                    <option value="set_executor">Переназначить исполнителя</option>
+                    <option value="cancel">Отменить задачи</option>
+                </select>
+            </div>
+
+            <div class="field hidden" id="bulk-prio-wrap">
+                <label>Новый приоритет</label>
+                <select name="bulk_priority">
+                    {% for code, label in priority_choices %}
+                    <option value="{{ code }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field hidden" id="bulk-due-wrap">
+                <label>Новый срок</label>
+                <input type="date" name="bulk_due">
+            </div>
+
+            <div class="field hidden" id="bulk-exec-wrap">
+                <label>Новый исполнитель</label>
+                <select name="bulk_executor">
+                    {% for u in users %}
+                    <option value="{{ u.pk }}">{{ u.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <button type="submit" class="btn blue"
+                        onclick="return confirm('Применить действие к выбранным задачам?');">
+                    Применить
+                </button>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto">
+            <table class="t-table">
+                <thead>
+                <tr>
+                    <th style="width:36px"><input type="checkbox" class="t-check" id="check-all"></th>
+                    <th style="width:60px">ID</th>
+                    <th>Задача</th>
+                    <th>Статус</th>
+                    <th>Приоритет</th>
+                    <th>Исполнитель</th>
+                    <th>Срок</th>
+                    <th>План, ч</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for t in page %}
+                <tr>
+                    <td><input type="checkbox" name="ids" value="{{ t.pk }}" class="t-check row-check"></td>
+                    <td style="color:var(--muted)">#{{ t.pk }}</td>
+                    <td>
+                        <a class="t-title" href="/tasks/task/{{ t.pk }}/" target="_blank">{{ t.title|truncatechars:80 }}</a>
+                        <div class="t-meta">
+                            {% if t.order %}Заказ {{ t.order.number }} · {% endif %}
+                            поставил {{ t.requester.full_name|default:'—' }}
+                        </div>
+                    </td>
+                    <td><span class="t-status {{ t.status }}">{{ t.get_status_display }}</span></td>
+                    <td><span class="t-prio {{ t.priority }}">{{ t.get_priority_display }}</span></td>
+                    <td>{{ t.executor.full_name|default:'—' }}</td>
+                    <td>
+                        {% if t.due %}
+                        {% if t.due < today and t.status != 'done' and t.status != 'cancelled' %}
+                        <span class="t-overdue">{{ t.due|date:'d.m.Y' }}</span>
+                        {% else %}
+                        {{ t.due|date:'d.m.Y' }}
+                        {% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ t.plan_hours|floatformat:1 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px 0">
+                    Задач по фильтрам нет.
+                </td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    (function(){
+      const all = document.getElementById('check-all');
+      const rows = Array.from(document.querySelectorAll('.row-check'));
+      const cnt = document.getElementById('bulk-count');
+      const action = document.getElementById('bulk-action');
+      const prioWrap = document.getElementById('bulk-prio-wrap');
+      const dueWrap = document.getElementById('bulk-due-wrap');
+      const execWrap = document.getElementById('bulk-exec-wrap');
+
+      function refresh(){
+        const n = rows.filter(r => r.checked).length;
+        cnt.textContent = n;
+        if (all) all.checked = rows.length > 0 && n === rows.length;
+      }
+
+      if (all){
+        all.addEventListener('change', () => {
+          rows.forEach(r => r.checked = all.checked);
+          refresh();
+        });
+      }
+      rows.forEach(r => r.addEventListener('change', refresh));
+
+      action.addEventListener('change', () => {
+        prioWrap.classList.toggle('hidden', action.value !== 'set_priority');
+        dueWrap.classList.toggle('hidden', action.value !== 'set_due');
+        execWrap.classList.toggle('hidden', action.value !== 'set_executor');
+      });
+
+      document.getElementById('bulk-form').addEventListener('submit', e => {
+        if (!rows.some(r => r.checked)){
+          e.preventDefault();
+          alert('Ничего не выбрано.');
+        }
+      });
+
+      refresh();
+    })();
+</script>
+{% endblock %}

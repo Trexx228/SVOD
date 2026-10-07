@@ -1,0 +1,284 @@
+<style>
+    .pr-header{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    .pr-ava{display:inline-flex;width:64px;height:64px;border-radius:999px;
+            background:linear-gradient(135deg,var(--blue),var(--green));
+            color:#fff;font-weight:800;font-size:26px;
+            align-items:center;justify-content:center;flex:none}
+    .pr-name{font-size:20px;font-weight:800}
+    .pr-meta{color:var(--muted);font-size:13px;margin-top:4px}
+    .pr-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .pr-badge{display:inline-block;padding:2px 10px;border-radius:999px;
+              font-size:11px;font-weight:700;
+              background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .pr-badge.ok{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .pr-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+
+    .pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:900px){.pr-grid{grid-template-columns:1fr}}
+
+    .pr-section{background:var(--soft);border:1px solid var(--line);
+                border-radius:14px;padding:14px 16px}
+    .pr-section h3{margin:0 0 10px;font-size:14px;text-transform:uppercase;
+                   letter-spacing:.4px;color:var(--muted)}
+
+    .pr-rows{display:flex;flex-direction:column;gap:8px}
+    .pr-row{display:flex;justify-content:space-between;align-items:flex-start;
+            gap:12px;padding:6px 0;font-size:13px}
+    .pr-row + .pr-row{border-top:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
+    .pr-row .k{color:var(--muted);flex:none}
+    .pr-row .v{font-weight:600;text-align:right;word-break:break-word}
+
+    .pr-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+    .pr-stat{background:var(--card);border:1px solid var(--line);border-radius:10px;
+             padding:10px 12px}
+    .pr-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;
+                letter-spacing:.4px;font-weight:700}
+    .pr-stat .v{font-size:20px;font-weight:800;margin-top:2px}
+    .pr-stat.ok .v{color:var(--green)}
+    .pr-stat.info .v{color:var(--blue)}
+
+    .pr-log{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;
+            border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent);gap:8px}
+    .pr-log:last-child{border-bottom:0}
+    .pr-log .ok{color:var(--green);font-weight:700}
+    .pr-log .fail{color:var(--red);font-weight:700}
+
+    .pr-overtime{width:100%;border-collapse:collapse;font-size:13px}
+    .pr-overtime th,.pr-overtime td{
+        padding:7px 10px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:top;
+    }
+    .pr-overtime th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .pr-overtime tbody tr:hover{background:var(--soft)}
+    .pr-overtime a{color:var(--blue);text-decoration:none;font-weight:600}
+    .pr-overtime a:hover{text-decoration:underline}
+</style>
+
+<div class="card">
+    <div class="pr-header">
+        <span class="pr-ava">{{ profile_user.full_name|slice:':1'|upper }}</span>
+        <div style="flex:1 1 260px">
+            <div class="pr-name">{{ profile_user.full_name }}</div>
+            <div class="pr-meta">{{ profile_user.email }}</div>
+            <div class="pr-meta">
+                {% if profile_user.department %}{{ profile_user.department.name }}{% endif %}
+                {% if profile_user.role %} · {{ profile_user.role.name }}{% endif %}
+            </div>
+            <div class="pr-badges">
+                {% if profile_user.is_active %}<span class="pr-badge ok">активен</span>{% else %}<span class="pr-badge warn">отключён</span>{% endif %}
+                {% if profile_user.is_superuser %}<span class="pr-badge">суперюзер</span>{% endif %}
+                {% if profile_user.is_admin_role %}<span class="pr-badge">админ</span>{% endif %}
+                {% if profile_user.can_plant %}<span class="pr-badge">директор</span>{% endif %}
+                {% if profile_user.is_boss %}<span class="pr-badge">руководитель</span>{% endif %}
+            </div>
+        </div>
+        <div style="flex:none">
+            <a class="pill" href="?tab=settings">⚙ Настройки</a>
+        </div>
+    </div>
+</div>
+
+<div class="pr-grid">
+    <div class="pr-section">
+        <h3>Моя активность (30 дней)</h3>
+        <div class="pr-stats">
+            <div class="pr-stat info">
+                <div class="l">Задач всего</div>
+                <div class="v">{{ stats.tasks_total }}</div>
+            </div>
+            <div class="pr-stat ok">
+                <div class="l">Готово за 30 дн</div>
+                <div class="v">{{ stats.tasks_done_month }}</div>
+            </div>
+            <div class="pr-stat">
+                <div class="l">Часов за 30 дн</div>
+                <div class="v">{{ stats.work_hours_month|floatformat:1 }}</div>
+            </div>
+
+            {% if stats.overtime_count_total %}
+            <div class="pr-stat" style="border-left:3px solid var(--orange)">
+                <div class="l">Сверхурочных за 30 дн</div>
+                <div class="v" style="color:var(--orange)">
+                    {{ stats.overtime_hours_month|floatformat:1 }} ч
+                </div>
+                <div style="color:var(--muted);font-size:11px;margin-top:2px">
+                    {{ stats.overtime_count_month }} запис.
+                </div>
+            </div>
+            <div class="pr-stat" style="border-left:3px solid var(--orange)">
+                <div class="l">Всего сверхурочных</div>
+                <div class="v" style="color:var(--orange)">
+                    {{ stats.overtime_hours_total|floatformat:1 }} ч
+                </div>
+                <div style="color:var(--muted);font-size:11px;margin-top:2px">
+                    {{ stats.overtime_count_total }} запис.
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+            Хочешь подробнее — разделы <a href="?tab=kpi">KPI</a>
+            и <a href="?tab=sessions">Мои часы</a>.
+        </div>
+    </div>
+
+    <div class="pr-section">
+        <h3>Мои данные</h3>
+        <div class="pr-rows">
+            <div class="pr-row">
+                <span class="k">ФИО</span>
+                <span class="v">{{ profile_user.full_name }}</span>
+            </div>
+            <div class="pr-row">
+                <span class="k">Корпоративная почта</span>
+                <span class="v">{{ profile_user.email }}</span>
+            </div>
+            <div class="pr-row">
+                <span class="k">Подразделение</span>
+                <span class="v">{{ profile_user.department.name|default:'—' }}</span>
+            </div>
+            <div class="pr-row">
+                <span class="k">Роль</span>
+                <span class="v">{{ profile_user.role.name|default:'—' }}</span>
+            </div>
+            <div class="pr-row">
+                <span class="k">Дата регистрации</span>
+                <span class="v">{{ profile_user.date_joined|date:'d.m.Y'|default:'—' }}</span>
+            </div>
+            <div class="pr-row">
+                <span class="k">Последняя активность</span>
+                <span class="v">
+                    {% if profile_user.last_activity_at %}
+                        {{ profile_user.last_activity_at|date:'d.m.Y H:i' }}
+                    {% else %}—{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+                    font-size:12px;color:var(--muted)">
+            Данные профиля меняет администратор или Active Directory.
+            Нужно что-то исправить — <a href="{% url 'support_send' %}">напиши в поддержку</a>.
+        </div>
+    </div>
+
+    {% if stats.overtime_count_total %}
+    <div class="pr-section" style="grid-column:1 / -1;
+                border-left:4px solid var(--orange)">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    gap:12px;flex-wrap:wrap;margin-bottom:10px">
+            <h3 style="margin:0">🚨 Мои сверхурочные</h3>
+            <div style="display:flex;gap:20px;flex-wrap:wrap">
+                <div style="text-align:right">
+                    <div style="font-size:18px;font-weight:800;color:var(--orange)">
+                        {{ stats.overtime_hours_total|floatformat:1 }} ч
+                    </div>
+                    <div style="color:var(--muted);font-size:11px">за всё время</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:18px;font-weight:800">
+                        {{ stats.overtime_hours_month|floatformat:1 }} ч
+                    </div>
+                    <div style="color:var(--muted);font-size:11px">за месяц</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto">
+            <table class="pr-overtime">
+                <thead>
+                <tr>
+                    <th style="width:110px">Дата</th>
+                    <th style="width:70px">Часы</th>
+                    <th>Задача</th>
+                    <th>Причина</th>
+                    <th style="width:150px">Кто внёс</th>
+                    <th style="width:50px"></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for rec in overtime_page %}
+                <tr>
+                    <td style="white-space:nowrap">{{ rec.date|date:'d.m.Y' }}</td>
+                    <td><b style="color:var(--orange)">{{ rec.hours|floatformat:1 }}</b></td>
+                    <td>
+                        {% if rec.task %}
+                        <a href="/tasks/task/{{ rec.task.pk }}/">
+                            #{{ rec.task.pk }} · {{ rec.task.title|truncatechars:50 }}
+                        </a>
+                        {% else %}
+                        <span style="color:var(--muted)">без задачи</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--muted);font-size:12px">
+                        {{ rec.reason|default:'—' }}
+                    </td>
+                    <td style="color:var(--muted);font-size:12px">
+                        {{ rec.created_by.full_name|default:'—' }}
+                        <div style="font-size:11px">
+                            {{ rec.created_at|date:'d.m.Y H:i' }}
+                        </div>
+                    </td>
+                    <td>
+                        {% if rec.order_file %}
+                        <a href="{{ rec.order_file.url }}" target="_blank"
+                           title="Приказ" style="text-decoration:none">📎</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if overtime_page.paginator.num_pages > 1 %}
+        <div style="display:flex;gap:8px;justify-content:center;
+                    align-items:center;margin-top:12px;flex-wrap:wrap">
+            {% if overtime_page.has_previous %}
+            <a class="pill"
+               href="?tab=profile&overtime_page={{ overtime_page.previous_page_number }}">← Назад</a>
+            {% endif %}
+            <span class="pill on">
+                Стр. {{ overtime_page.number }} из {{ overtime_page.paginator.num_pages }}
+            </span>
+            {% if overtime_page.has_next %}
+            <a class="pill"
+               href="?tab=profile&overtime_page={{ overtime_page.next_page_number }}">Вперёд →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <p style="color:var(--muted);font-size:12px;margin:10px 0 0">
+            Сверхурочные вносит руководитель вашего отдела. Если что-то
+            не так — обратитесь к нему.
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="pr-section" style="grid-column:1 / -1">
+        <h3>Мои входы · успешных {{ logins_ok }} · отказов {{ logins_failed }}</h3>
+        {% if logins %}
+        <div style="max-width:640px">
+            {% for l in logins %}
+            <div class="pr-log">
+                <span>{{ l.created_at|date:'d.m.Y H:i' }}</span>
+                <span class="{% if l.success %}ok{% else %}fail{% endif %}">
+                    {% if l.success %}успех{% else %}отказ{% endif %}
+                </span>
+                <span style="color:var(--muted)">{{ l.ip|default:'—' }}</span>
+                <span style="color:var(--muted);max-width:200px;overflow:hidden;
+                             text-overflow:ellipsis;white-space:nowrap"
+                      title="{{ l.user_agent }}">
+                    {{ l.user_agent|truncatechars:32|default:'—' }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="color:var(--muted);font-size:13px">Записей пока нет.</div>
+        {% endif %}
+    </div>
+</div>

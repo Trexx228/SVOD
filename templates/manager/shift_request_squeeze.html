@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Ужать сроки" %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+            <div style="font-size:18px;font-weight:800">
+                Ужать сроки · заявка #{{ req.pk }}
+            </div>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                Задача-виновник: {{ source.title }} ·
+                План: {{ source.plan_hours|floatformat:1 }} ч ·
+                Исполнитель: {{ source.executor.full_name }}
+            </div>
+        </div>
+        <a class="pill" href="{% url 'shift_request_detail' req.pk %}">← К заявке</a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {# ═══════ Разбиение source ═══════ #}
+        {% if split_ok %}
+        <div class="card" style="background:var(--soft);margin-bottom:14px">
+            <h3 style="margin:0 0 10px">1. Разбить задачу</h3>
+            <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+                Часть выполним сейчас, остаток — отложим.
+                Минимум для разбиения: {{ min_split_hours }} ч.
+            </p>
+            <label style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                <input type="checkbox" name="split_enabled" value="1" style="width:auto"
+                       id="split-cb">
+                <span>Разбить задачу</span>
+            </label>
+            <div id="split-fields" style="display:none;margin-left:24px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <label>Часов сделать сейчас</label>
+                        <input type="number" name="split_first" step="0.5" min="0.5"
+                               max="{{ source.plan_hours|floatformat:1 }}"
+                               value="{{ source.plan_hours|floatformat:1 }}">
+                    </div>
+                    <div>
+                        <label>Отложить остаток на (дней)</label>
+                        <input type="number" name="split_second_days" min="1" value="3">
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ═══════ Перекинуть задачи ═══════ #}
+        {% if open_tasks and candidates %}
+        <div class="card" style="background:var(--soft);margin-bottom:14px">
+            <h3 style="margin:0 0 10px">2. Перекинуть задачи исполнителя</h3>
+            <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+                Кандидаты — сотрудники того же отдела и той же роли
+                со свободным бюджетом часов.
+            </p>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Задача</th><th>План, ч</th><th>Срок</th>
+                    <th>Перекинуть на</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for t in open_tasks %}
+                <tr>
+                    <td>{{ t.title|truncatechars:60 }}</td>
+                    <td>{{ t.plan_hours|floatformat:1 }}</td>
+                    <td>{{ t.due|date:'d.m.Y'|default:'—' }}</td>
+                    <td>
+                        <select name="reassign_{{ t.pk }}" style="min-width:220px">
+                            <option value="">— не перекидывать —</option>
+                            {% for c in candidates %}
+                            <option value="{{ c.user.pk }}"
+                                    {% if c.free_hours < t.plan_hours %}disabled{% endif %}>
+                            {{ c.user.full_name }} · свободно {{ c.free_hours|floatformat:1 }} ч
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {# ═══════ Разблокировать этапы ═══════ #}
+        {% if chain_tasks %}
+        <div class="card" style="background:var(--soft);margin-bottom:14px">
+            <h3 style="margin:0 0 10px">3. Разблокировать следующие этапы</h3>
+            <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+                Эти этапы ждут закрытия текущего. Их можно запустить
+                параллельно, чтобы ужать общий срок.
+            </p>
+            {% for t in chain_tasks %}
+            <label style="display:flex;gap:8px;align-items:center;padding:8px 0;
+                          border-bottom:1px solid var(--line)">
+                <input type="checkbox" name="unblock" value="{{ t.pk }}" style="width:auto">
+                <span>
+                    <b>{{ t.title }}</b>
+                    <span style="color:var(--muted);font-size:12px">
+                        · {{ t.executor.full_name }}
+                        {% if t.due %} · до {{ t.due|date:'d.m.Y' }}{% endif %}
+                    </span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not split_ok and not open_tasks and not chain_tasks %}
+        <div class="card" style="text-align:center;color:var(--muted);padding:24px 0">
+            Вариантов ужима нет — разбить нельзя, перекидывать не на кого,
+            дополнительных этапов нет. Придётся одобрить сдвиг или отклонить.
+        </div>
+        {% endif %}
+
+        <div style="margin-top:14px">
+            <label>Комментарий к решению (необязательно)</label>
+            <input name="note" maxlength="500" placeholder="Например: разбили, часть ушла Петрову">
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+            <button class="btn orange" type="submit" style="flex:1 1 200px">
+                📐 Применить ужим
+            </button>
+            <a class="pill" href="{% url 'shift_request_detail' req.pk %}"
+               style="align-self:center">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function(){
+        var cb = document.getElementById('split-cb');
+        var fields = document.getElementById('split-fields');
+        if (!cb || !fields) return;
+        cb.addEventListener('change', function(){
+            fields.style.display = cb.checked ? 'block' : 'none';
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Заявка на сдвиг" %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+            <div style="font-size:18px;font-weight:800">
+                Заявка #{{ req.pk }} · {{ req.get_status_display }}
+            </div>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                Уровень: {{ req.get_current_level_display }} ·
+                Создана: {{ req.created_at|date:'d.m.Y H:i' }} ·
+                Эскалация: {{ req.escalate_at|date:'d.m.Y H:i' }}
+            </div>
+        </div>
+        <a class="pill" href="{% url 'shift_requests_list' %}">← Все заявки</a>
+    </div>
+
+    {% if ignored %}
+    <div style="background:color-mix(in srgb,var(--orange) 12%,var(--soft));
+                border:1px solid var(--orange);border-radius:12px;
+                padding:10px 14px;margin-bottom:14px;font-size:13px">
+        <b>⚠️ Проигнорировали:</b>
+        {% for s in ignored %}
+        {{ s.reviewer.full_name }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div>
+            <div style="color:var(--muted);font-size:12px;text-transform:uppercase;font-weight:700">Виновник</div>
+            <div style="font-size:16px;font-weight:800;margin-top:2px">{{ req.source_task.title }}</div>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                Исполнитель: <b>{{ req.source_task.executor.full_name }}</b>
+            </div>
+        </div>
+        <div>
+            <div style="color:var(--muted);font-size:12px;text-transform:uppercase;font-weight:700">Сдвиг</div>
+            <div style="font-size:24px;font-weight:800;color:var(--orange)">+{{ req.shift_days }} раб. дн.</div>
+            <div style="color:var(--muted);font-size:13px">Отдел: {{ req.department.name }}</div>
+        </div>
+    </div>
+
+    <div style="background:var(--soft);border:1px solid var(--line);border-radius:12px;
+                padding:12px 14px;margin-bottom:14px">
+        <div style="color:var(--muted);font-size:12px;text-transform:uppercase;font-weight:700;margin-bottom:6px">
+            Обоснование срочности
+        </div>
+        <div style="white-space:pre-wrap">{{ req.reason }}</div>
+    </div>
+
+    {% if affected %}
+    <div style="margin-bottom:14px">
+        <div style="color:var(--muted);font-size:12px;text-transform:uppercase;font-weight:700;margin-bottom:8px">
+            Что сдвинется ({{ affected|length }})
+        </div>
+        <table>
+            <thead>
+            <tr><th>Задача</th><th>Исполнитель</th><th>Срок</th></tr>
+            </thead>
+            <tbody>
+            {% for t in affected %}
+            <tr>
+                <td><a href="{% url 'task_detail' t.pk %}">{{ t.title|truncatechars:60 }}</a></td>
+                <td>{{ t.executor.full_name }}</td>
+                <td>{{ t.due|date:'d.m.Y'|default:'—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if can_review %}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <form method="post" action="{% url 'shift_request_reject' req.pk %}"
+              style="margin:0;flex:1 1 200px"
+              data-confirm="Отклонить? Задача будет отменена.">
+            {% csrf_token %}
+            <input name="note" placeholder="Причина отклонения (необязательно)"
+                   style="margin-bottom:8px">
+            <button class="btn red" type="submit" style="width:100%">✗ Отклонить</button>
+        </form>
+    </div>
+    <div style="margin-top:10px">
+        <a class="btn orange" style="width:100%;text-align:center;box-sizing:border-box"
+           href="{% url 'shift_request_squeeze' req.pk %}">
+            📐 Ужать сроки (без сдвига)
+        </a>
+    </div>
+    {% elif req.status == 'pending' %}
+    <p style="color:var(--muted)">Ждём решения согласующих. Вы — не согласующий.</p>
+    {% else %}
+    <div style="margin-top:14px">
+        <b>Решение:</b> {{ req.get_status_display }}
+        {% if req.resolved_by %} · {{ req.resolved_by.full_name }}{% endif %}
+        {% if req.resolved_at %} · {{ req.resolved_at|date:'d.m.Y H:i' }}{% endif %}
+        {% if req.decision_note %}<div style="margin-top:6px">{{ req.decision_note }}</div>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Динамика отдела" %}
+
+<style>
+    .dd-toolbar{
+        display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+        margin-bottom:14px;
+    }
+    .dd-tiles{
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+        gap:10px;margin-bottom:18px;
+    }
+    .dd-tile{
+        background:var(--soft);border:1px solid var(--line);
+        border-radius:12px;padding:12px 14px;
+    }
+    .dd-tile .l{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .dd-tile .v{font-size:24px;font-weight:800;margin-top:2px;letter-spacing:-.01em}
+    .dd-tile .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .dd-tile.ok .v{color:var(--green)}
+    .dd-tile.warn .v{color:var(--orange)}
+    .dd-tile.danger .v{color:var(--red)}
+    .dd-tile.info .v{color:var(--blue)}
+
+    .dd-chart{
+        display:flex;align-items:flex-end;gap:2px;height:120px;
+        padding:10px 0;
+        border-bottom:1px solid var(--line);
+        overflow-x:auto;
+    }
+    .dd-chart .col{
+        flex:0 0 auto;width:18px;min-width:18px;
+        display:flex;flex-direction:column;align-items:center;
+        justify-content:flex-end;height:100%;
+    }
+    .dd-chart .bar{
+        width:100%;min-height:2px;border-radius:3px 3px 0 0;
+        background:linear-gradient(180deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#000));
+    }
+    .dd-chart .bar.done{
+        background:linear-gradient(180deg,var(--green),color-mix(in srgb,var(--green) 55%,#000));
+    }
+    .dd-chart .bar.shop{
+        background:linear-gradient(180deg,var(--orange),color-mix(in srgb,var(--orange) 55%,#000));
+    }
+    .dd-chart .lbl{
+        font-size:9px;color:var(--muted);margin-top:4px;
+        transform:rotate(-60deg);transform-origin:center;
+        white-space:nowrap;height:24px;
+    }
+    .dd-legend{
+        display:flex;gap:14px;flex-wrap:wrap;
+        font-size:12px;color:var(--muted);margin-top:6px;
+    }
+    .dd-legend span{display:inline-flex;align-items:center;gap:6px}
+    .dd-legend i{width:14px;height:10px;border-radius:2px;display:inline-block}
+    .dd-legend .fact{background:var(--blue)}
+    .dd-legend .done{background:var(--green)}
+    .dd-legend .shop{background:var(--orange)}
+
+    .dd-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .dd-tbl th,.dd-tbl td{
+        padding:7px 10px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:top;
+    }
+    .dd-tbl th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .dd-tbl tbody tr:hover{background:var(--soft)}
+    .dd-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+    .dd-tbl .empty{color:var(--muted)}
+</style>
+
+{# ─── Панель управления ─── #}
+<div class="dd-toolbar">
+    <span style="color:var(--muted);font-size:13px">Период:</span>
+    <a class="pill {% if days == 7 %}on{% endif %}"
+       href="?days=7{% if selected_dept %}&dept={{ selected_dept.pk }}{% endif %}">7 дней</a>
+    <a class="pill {% if days == 30 %}on{% endif %}"
+       href="?days=30{% if selected_dept %}&dept={{ selected_dept.pk }}{% endif %}">30 дней</a>
+    <a class="pill {% if days == 90 %}on{% endif %}"
+       href="?days=90{% if selected_dept %}&dept={{ selected_dept.pk }}{% endif %}">90 дней</a>
+
+    {% if is_full_scope and departments|length > 1 %}
+    <span style="margin-left:16px;color:var(--muted);font-size:13px">Отдел:</span>
+    {% for d in departments %}
+    <a class="pill {% if selected_dept.pk == d.pk %}on{% endif %}"
+       href="?days={{ days }}&dept={{ d.pk }}">{{ d.name }}</a>
+    {% endfor %}
+    {% endif %}
+
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        {% if user.can_plant or user.is_admin_role %}
+        <form method="post" action="{% url 'manager_dept_dynamics_capture' %}"
+              style="margin:0"
+              data-confirm="Собрать свежий срез метрик по всем отделам? Задача займёт 1–3 секунды.">
+            {% csrf_token %}
+            <input type="hidden" name="days" value="{{ days }}">
+            {% if selected_dept %}<input type="hidden" name="dept" value="{{ selected_dept.pk }}">{% endif %}
+            <button type="submit" class="btn green">
+                🔄 Собрать срез сейчас
+            </button>
+        </form>
+        {% endif %}
+        <a class="btn blue"
+           href="{% url 'manager_dept_dynamics_csv' %}?days={{ days }}{% if selected_dept %}&dept={{ selected_dept.pk }}{% endif %}">
+            ⬇ CSV
+        </a>
+    </div>
+</div>
+
+{% if not selected_dept %}
+<div class="card" style="text-align:center;color:var(--muted);padding:36px 0">
+    Нет ни одного отдела со срезами метрик.
+    <div style="margin-top:8px;font-size:13px">
+        Срезы создаются командой <code>capture_daily_metrics</code> — проверь,
+        запускается ли она из scheduler в 23:50.
+    </div>
+</div>
+{% else %}
+
+{# ─── Итоги ─── #}
+<div class="dd-tiles">
+    <div class="dd-tile ok">
+        <div class="l">Закрыто задач</div>
+        <div class="v">{{ grand.done }}</div>
+        <div class="h">≈ {{ grand.avg_done }} / день</div>
+    </div>
+    <div class="dd-tile info">
+        <div class="l">Факт часов</div>
+        <div class="v">{{ grand.fact|floatformat:1 }}</div>
+        <div class="h">≈ {{ grand.avg_fact }} ч / день</div>
+    </div>
+    <div class="dd-tile">
+        <div class="l">Цех, часов</div>
+        <div class="v">{{ grand.shop|floatformat:1 }}</div>
+    </div>
+    <div class="dd-tile {% if grand.open_now and grand.overdue_now %}warn{% endif %}">
+        <div class="l">Открыто / просрочено</div>
+        <div class="v">
+            {{ grand.open_now|default:'—' }}
+            <span style="color:var(--muted);font-weight:400">
+                / <span style="{% if grand.overdue_now %}color:var(--red){% endif %}">
+                    {{ grand.overdue_now|default:'—' }}
+                </span>
+            </span>
+        </div>
+        <div class="h">на последний срез</div>
+    </div>
+    <div class="dd-tile">
+        <div class="l">Сеансов работы</div>
+        <div class="v">{{ grand.sessions }}</div>
+    </div>
+    <div class="dd-tile">
+        <div class="l">Дней со срезами</div>
+        <div class="v">{{ grand.days_with_data }}</div>
+        <div class="h">из {{ days }}</div>
+    </div>
+</div>
+
+{# ─── График «Закрыто задач по дням» ─── #}
+<div class="card">
+    <h3 style="margin:0 0 10px">Закрыто задач по дням</h3>
+    <div class="dd-chart">
+        {% for r in rows %}
+        <div class="col" title="{{ r.date|date:'d.m.Y' }}: {{ r.done }} задач">
+            <div class="bar done" style="height:{{ r.done_pct }}%"></div>
+            <div class="lbl">{{ r.date|date:'d.m' }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="dd-legend">
+        <span><i class="done"></i>закрыто задач</span>
+    </div>
+</div>
+
+{# ── График «Часы: факт и цех» ── #}
+<div class="card">
+    <h3 style="margin:0 0 10px">Часы по дням</h3>
+    <div class="dd-chart">
+        {% for r in rows %}
+        <div class="col" title="{{ r.date|date:'d.m.Y' }}: факт {{ r.fact }} ч, цех {{ r.shop }} ч">
+            <div class="bar" style="height:{{ r.fact_pct }}%"></div>
+            <div class="bar shop" style="height:{{ r.shop_pct }}%;margin-top:1px"></div>
+            <div class="lbl">{{ r.date|date:'d.m' }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="dd-legend">
+        <span><i class="fact"></i>факт, ч</span>
+        <span><i class="shop"></i>цех, ч</span>
+    </div>
+</div>
+
+{# ─── Таблица по дням ─── #}
+<div class="card">
+    <h3 style="margin:0 0 10px">Срез по дням</h3>
+    <div style="overflow-x:auto">
+        <table class="dd-tbl">
+            <thead>
+            <tr>
+                <th style="white-space:nowrap">Дата</th>
+                <th class="num">Открыто</th>
+                <th class="num">Просроч.</th>
+                <th class="num">Закрыто</th>
+                <th class="num">План откр., ч</th>
+                <th class="num">Факт за день, ч</th>
+                <th class="num">Цех, ч</th>
+                <th class="num">Сеансов</th>
+                <th class="num">Сотруд.</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td style="white-space:nowrap">{{ r.date|date:'d.m.Y' }}</td>
+                {% if r.metrics %}
+                <td class="num">{{ r.open }}</td>
+                <td class="num" {% if r.overdue %}style="color:var(--red);font-weight:700"{% endif %}>
+                    {{ r.overdue }}
+                </td>
+                <td class="num">{{ r.done }}</td>
+                <td class="num">{{ r.plan_open|floatformat:1 }}</td>
+                <td class="num">{{ r.fact|floatformat:2 }}</td>
+                <td class="num">{{ r.shop|floatformat:2 }}</td>
+                <td class="num">{{ r.sessions }}</td>
+                <td class="num">{{ r.employees }}</td>
+                {% else %}
+                <td colspan="8" class="empty">— среза нет —</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ─── Приписка про автоматику ─── #}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 6%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 30%,var(--line));
+            font-size:13px;color:var(--muted)">
+    <b style="color:var(--ink)">ℹ️ Как собираются срезы</b>
+    <div style="margin-top:6px;line-height:1.6">
+        Метрики по дням собираются <b>автоматически один раз в сутки в 23:50</b>
+        командой <code>capture_daily_metrics</code>. Это <b>срез по подразделению</b>,
+        а не по отдельному заказу — для задач и заказов есть свои разделы.
+
+        {% if user.can_plant or user.is_admin_role %}
+        <br>
+        Если нужно посмотреть данные прямо сейчас — нажмите
+        <b>«🔄 Собрать срез сейчас»</b> вверху. Текущий срез за сегодня
+        будет перезаписан свежими данными.
+        {% else %}
+        <br>
+        Если данные не за сегодня — их собирает руководитель завода или
+        администратор. Обратитесь к ним.
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

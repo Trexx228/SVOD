@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Динамика и качество" %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3>{% if deltas.cnt is not None %}{{ deltas.cnt|floatformat:0 }}%{% else %}—{% endif %}</h3>
+        <p class="mb-0">закрытых к прошлому месяцу</p>
+    </div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3>{% if deltas.hours is not None %}{{ deltas.hours|floatformat:0 }}%{% else %}—{% endif %}</h3>
+        <p class="mb-0">часов к прошлому месяцу</p>
+    </div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3>{% if cycle_overall is not None %}{{ cycle_overall|floatformat:0 }}{% else %}—{% endif %}</h3>
+        <p class="mb-0">медианный цикл, дн</p>
+    </div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body text-center">
+        <h3>{{ anomalies_count }}</h3><p class="mb-0">аномальных сеансов</p>
+    </div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <h4 style="font-size:15px">Закрытых с опозданием, 8 недель</h4>
+        <div style="display:flex;align-items:flex-end;height:150px;gap:8px">
+            {% for w in late_weeks %}
+            <div style="flex:1;text-align:center">
+                <div style="height:{{ w.pct }}%;min-height:10px;background:var(--red);border-radius:6px 6px 0 0"
+                     title="{{ w.label }}: {{ w.n }}"></div>
+                <small style="color:var(--muted);font-size:11px">{{ w.label }}</small>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <h4 style="font-size:15px">Цикл «создана → закрыта», медиана дней</h4>
+        <table>
+            {% for c in cycle %}
+            <tr><td>{{ c.label }}</td><td>{{ c.median|floatformat:0 }} дн ({{ c.n }})</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+<div class="card" style="margin-top:18px">
+    <h3 style="margin:0 0 10px">Точность оценок ±20% по видам работ</h3>
+    <table>
+        {% for a in acc_rows %}
+        <tr>
+            <td>{{ a.label }}{% if a.revise %} ⚠️{% endif %}</td>
+            <td>{{ a.pct }}% ({{ a.n }})</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <p style="color:var(--muted);font-size:13px;margin-top:8px">
+        ⚠️ — точность ниже 50%: норма вида работы требует ревизии.
+    </p>
+</div>
+
+{% if anomalies %}
+<div class="card">
+    <h3 style="margin:0 0 10px">Аномальные сеансы (ночные / сверхдлинные)</h3>
+    <table>
+        <tr><th>Задача</th><th>Сотрудник</th><th>Старт</th><th>Длительность</th></tr>
+        {% for s in anomalies %}
+        <tr>
+            <td>{{ s.task.title }}</td><td>{{ s.executor.full_name }}</td>
+            <td>{{ s.started_at|date:'d.m H:i' }}</td>
+            <td>{{ s.duration_hours|floatformat:1 }} ч</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+{% endblock %}

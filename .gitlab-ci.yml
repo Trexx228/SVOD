@@ -1,0 +1,41 @@
+# Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PYTHON_VERSION: "3.12"
+
+# РџРѕСЂСЏРґРѕРє СЃС‚Р°РґРёР№
+stages:
+  - lint
+  - test
+  - package
+  - deploy
+
+# РљРѕРіРґР° Р·Р°РїСѓСЃРєР°С‚СЊ РїР°Р№РїР»Р°Р№РЅ
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# РћР±С‰РёР№ РєРµС€ РґР»СЏ pip
+default:
+  cache:
+    key:
+      files:
+        - requirements.txt
+    paths:
+      - .pip-cache/
+
+# РџРѕРґРєР»СЋС‡РµРЅРёРµ РјРѕРґСѓР»РµР№
+include:
+  - local: .gitlab/ci/lint.yml
+  - local: .gitlab/ci/test.yml
+  - local: .gitlab/ci/package.yml
+  - local: .gitlab/ci/deploy.yml
+  - local: .gitlab/ci/build.yml
+  - local: .gitlab/ci/.gitlab-ci-local-variables.yml
+
+# include Р±СѓРґРµС‚ РґРѕР±Р°РІР»РµРЅ РїРѕСЃР»Рµ СЃРѕР·РґР°РЅРёСЏ .gitlab/ci/*.yml

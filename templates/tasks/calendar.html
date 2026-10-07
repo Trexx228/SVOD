@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .calgrid-m{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .calcell{min-height:92px;border:1px solid var(--line);border-radius:12px;padding:6px;background:var(--card);overflow:hidden}
+    .calcell.out{opacity:.4}
+    .calcell.today{border-color:var(--blue);box-shadow:var(--ring)}
+    .calday-n{font-weight:800;font-size:13px;color:var(--muted)}
+    .caltask{display:block;font-size:11px;font-weight:600;border-radius:8px;padding:2px 6px;margin-top:4px;
+             background:var(--softblue);color:var(--blue);text-decoration:none;
+             white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .caltask.over{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
+</style>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+    <h2 style="margin:0">Календарь сроков · {{ month_name }}</h2>
+    <div style="display:flex;gap:8px">
+        <a class="pill" href="?view=calendar&y={{ prev.y }}&m={{ prev.m }}">←</a>
+        <a class="pill" href="?view=calendar">Сегодня</a>
+        <a class="pill" href="?view=calendar&y={{ next.y }}&m={{ next.m }}">→</a>
+    </div>
+</div>
+
+{% include 'tasks/_registry_tabs.html' %}
+<div class="calgrid-m" style="margin-bottom:6px">
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Пн</span>
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Вт</span>
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Ср</span>
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Чт</span>
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Пт</span>
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Сб</span>
+    <span style="text-align:center;color:var(--muted);font-size:12px;font-weight:700">Вс</span>
+</div>
+<div class="calgrid-m">
+    {% for week in weeks %}{% for cell in week %}
+    <div class="calcell {% if not cell.day %}out{% endif %}{% if cell.day == today.day and y == today.year and m == today.month %} today{% endif %}">
+        {% if cell.day %}<span class="calday-n">{{ cell.day }}</span>
+        {% for t in cell.tasks %}
+        <a class="caltask {% if t.due < today %}over{% endif %}" href="{% url 'task_detail' t.pk %}"
+           title="{{ t.title }} · {{ t.executor.full_name }}">{{ t.title }}</a>
+        {% endfor %}
+        {% endif %}
+    </div>
+    {% endfor %}{% endfor %}
+</div>
+<p style="color:var(--muted);margin-top:10px">Показаны открытые задачи со сроком в месяце;
+    красным — срок уже прошёл. Руководителю видно всё подразделение, сотруднику — свои и поставленные.</p>
+{% endblock %}

@@ -1,0 +1,13 @@
+asgiref==3.12.1
+Django==6.1.1
+et_xmlfile==2.0.0
+gunicorn==23.0.0
+holidays==0.105
+ldap3==2.9.1
+openpyxl==3.1.5
+pyasn1==0.6.4
+python-magic==0.4.27
+python-magic-bin==0.4.14 ; sys_platform == "win32"
+sqlparse==0.6.0
+tzdata==2026.4
+whitenoise==6.8.2

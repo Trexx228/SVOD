@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .ic-banner{border-radius:14px;padding:16px 20px;margin-bottom:16px;
+               display:flex;justify-content:space-between;align-items:center;
+               gap:14px;flex-wrap:wrap;font-weight:700}
+    .ic-banner.ok{background:color-mix(in srgb,var(--green) 12%,var(--soft));
+                  border:1px solid color-mix(in srgb,var(--green) 45%,var(--line))}
+    .ic-banner.warn{background:color-mix(in srgb,var(--orange) 12%,var(--soft));
+                    border:1px solid color-mix(in srgb,var(--orange) 45%,var(--line))}
+    .ic-banner.crit{background:color-mix(in srgb,var(--red) 12%,var(--soft));
+                    border:1px solid color-mix(in srgb,var(--red) 50%,var(--line))}
+    .ic-banner .v{font-size:22px}
+
+    .ic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:16px}
+    .ic-tile{background:var(--soft);border:1px solid var(--line);border-radius:12px;
+             padding:12px 14px;text-decoration:none;color:inherit;
+             display:flex;justify-content:space-between;align-items:center;gap:10px;
+             transition:transform .12s}
+    .ic-tile:hover{transform:translateY(-2px)}
+    .ic-tile.warn{border-color:color-mix(in srgb,var(--orange) 50%,var(--line))}
+    .ic-tile.danger{border-color:color-mix(in srgb,var(--red) 55%,var(--line))}
+    .ic-tile.info{border-color:color-mix(in srgb,var(--blue) 40%,var(--line))}
+    .ic-tile .t{font-size:13px;font-weight:700}
+    .ic-tile .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .ic-tile .v{font-size:22px;font-weight:800}
+    .ic-tile.warn .v{color:var(--orange)}
+    .ic-tile.danger .v{color:var(--red)}
+    .ic-tile.info .v{color:var(--blue)}
+
+    .ic-section{border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+                background:var(--card);margin-bottom:12px}
+    .ic-section.warn{border-color:color-mix(in srgb,var(--orange) 40%,var(--line))}
+    .ic-section.danger{border-color:color-mix(in srgb,var(--red) 45%,var(--line))}
+    .ic-section.info{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+    .ic-section h3{margin:0 0 4px;font-size:15px;display:flex;justify-content:space-between;
+                   align-items:center;gap:12px}
+    .ic-section .hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+    .ic-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .ic-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .ic-badge.danger{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+    .ic-badge.info{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+
+    .ic-table{width:100%;border-collapse:collapse;font-size:13px}
+    .ic-table th,.ic-table td{padding:7px 10px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:top}
+    .ic-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .ic-table tbody tr:hover{background:var(--soft)}
+    .ic-table a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ic-table a:hover{text-decoration:underline}
+    .ic-more{color:var(--muted);font-size:12px;text-align:right;margin-top:6px}
+</style>
+
+{% if summary.critical_count %}
+<div class="ic-banner crit">
+    <span>⚠ Критичные нарушения: {{ summary.critical_count }}</span>
+    <span class="v">!</span>
+</div>
+{% elif summary.total_problems %}
+<div class="ic-banner warn">
+    <span>Предупреждений: {{ summary.total_problems }}</span>
+    <span class="v">!</span>
+</div>
+{% else %}
+<div class="ic-banner ok">
+    <span>Целостность в порядке</span>
+    <span class="v">✓</span>
+</div>
+{% endif %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Диагностика БД</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="pill" href="{% url 'settings_integrity' %}">Обновить</a>
+            {% if summary.total_problems or summary.total_info %}
+            <a class="btn gray"
+               href="{% url 'settings_integrity' %}?format=csv">Экспорт CSV</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="ic-grid">
+        {% for s in sections %}
+        <a class="ic-tile {% if s.count %}{{ s.severity }}{% endif %}"
+           href="#sec-{{ s.key }}">
+            <div>
+                <div class="t">{{ s.title }}</div>
+                <div class="h">{{ s.count }} записей</div>
+            </div>
+            <div class="v">{{ s.count }}</div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+{% for s in sections %}
+{% if s.count %}
+<div class="ic-section {{ s.severity }}" id="sec-{{ s.key }}">
+    <h3>
+        <span>{{ s.title }}</span>
+        <span class="ic-badge {{ s.severity }}">{{ s.count }}</span>
+    </h3>
+    <p class="hint">{{ s.description }}</p>
+
+    <table class="ic-table">
+        <thead>
+        <tr>
+            {% if s.key == 'session_zero_duration' or s.key == 'session_negative' or s.key == 'shop_stale' or s.key == 'shop_zero_duration' or s.key == 'session_too_long' %}
+            <th style="width:60px">ID</th>
+            <th>Сотрудник</th>
+            <th>Задача</th>
+            <th>Старт / Финиш</th>
+            {% elif s.key == 'role_empty' or s.key == 'role_admin_no_users' %}
+            <th>Роль</th>
+            <th>Код</th>
+            <th>Описание</th>
+            {% elif s.key == 'dept_empty' %}
+            <th>Подразделение</th>
+            <th>Создано</th>
+            {% elif s.key == 'user_no_role' or s.key == 'user_no_dept' or s.key == 'bad_email' %}
+            <th>Сотрудник</th>
+            <th>Email</th>
+            <th>Роль / Отдел</th>
+            {% else %}
+            <th style="width:60px">ID</th>
+            <th>Задача</th>
+            <th>Статус</th>
+            <th>Исполнитель</th>
+            {% endif %}
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in s.rows %}
+        <tr>
+            {% if s.key == 'session_zero_duration' or s.key == 'session_negative' or s.key == 'shop_stale' or s.key == 'shop_zero_duration' or s.key == 'session_too_long' %}{% if s.key == 'session_zero_duration' or s.key == 'session_negative' or s.key == 'shop_stale' or s.key == 'shop_zero_duration' or s.key == 'session_too_long' %}            <td>#{{ row.pk }}</td>
+            <td>{{ row.executor.full_name|default:'—' }}</td>
+            <td>
+                {% if row.task %}
+                <a href="/tasks/task/{{ row.task.pk }}/" target="_blank">#{{ row.task.pk }} · {{ row.task.title|truncatechars:50 }}</a>
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if row.started_at %}{{ row.started_at|date:'d.m.Y H:i' }}{% else %}—{% endif %}
+                {% if row.finished_at %} → {{ row.finished_at|date:'d.m.Y H:i' }}{% endif %}
+            </td>
+            {% elif s.key == 'role_empty' or s.key == 'role_admin_no_users' %}
+            <td><a href="{% url 'settings_role_edit' row.pk %}">{{ row.name }}</a></td>
+            <td><code style="font-size:11px">{{ row.code }}</code></td>
+            <td style="color:var(--muted);font-size:12px">{{ row.description|default:'—' }}</td>
+            {% elif s.key == 'dept_empty' %}
+            <td><a href="{% url 'settings_department_edit' row.pk %}">{{ row.name }}</a></td>
+            <td>{{ row.created_at|date:'d.m.Y' }}</td>
+            {% elif s.key == 'user_no_role' or s.key == 'user_no_dept' or s.key == 'bad_email' %}
+            <td><a href="{% url 'settings_user_edit' row.pk %}">{{ row.full_name }}</a></td>
+            <td>{{ row.email }}</td>
+            <td style="color:var(--muted);font-size:12px">
+                {% if row.role %}{{ row.role.name }}{% else %}без роли{% endif %}
+                ·
+                {% if row.department %}{{ row.department.name }}{% else %}без отдела{% endif %}
+            </td>
+            {% else %}
+            <td>#{{ row.pk }}</td>
+            <td>
+                <a href="/tasks/task/{{ row.pk }}/" target="_blank">{{ row.title|truncatechars:60 }}</a>
+            </td>
+            <td>{{ row.get_status_display }}</td>
+            <td>{{ row.executor.full_name|default:'—' }}</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {% if s.count > s.rows|length %}
+    <div class="ic-more">
+        показано {{ s.rows|length }} из {{ s.count }} —
+        экспорт CSV содержит только сводку.
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if not summary.total_problems and not summary.total_info %}
+<div class="card" style="text-align:center;color:var(--muted);padding:36px 0">
+    Все проверки пройдены — БД в порядке.
+</div>
+{% endif %}
+{% endblock %}

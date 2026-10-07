@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Сводка по сессиям" %}
+
+{% if is_narrow_scope %}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 40%,var(--line));
+            margin-bottom:14px;padding:10px 16px;font-size:13px">
+    Показаны данные только по вашему подразделению:
+    <b>{{ scope_department.name }}</b>.
+</div>
+{% endif %}
+
+<style>
+    .sm-filter{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;
+               align-items:end;margin-bottom:14px;max-width:720px}
+    @media(max-width:800px){.sm-filter{grid-template-columns:1fr 1fr}}
+    .sm-filter label{margin:0 0 4px}
+
+    .sm-table{width:100%;border-collapse:collapse;font-size:13px}
+    .sm-table th,.sm-table td{padding:9px 12px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:middle}
+    .sm-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .sm-table tbody tr:hover{background:var(--soft)}
+    .sm-table .num{text-align:right;font-variant-numeric:tabular-nums}
+    .sm-table tfoot td{font-weight:800;background:var(--soft);border-top:2px solid var(--line)}
+    .sm-total{font-weight:800;color:var(--green)}
+</style>
+
+<div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn green"
+           href="{% url 'manager_sessions_summary' %}?format=xlsx{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+            Excel
+        </a>
+        <a class="btn gray"
+           href="{% url 'manager_sessions_summary' %}?format=csv{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+            CSV
+        </a>
+    </div>
+
+    <form method="get" class="sm-filter">
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'manager_sessions_summary' %}">Сброс</a>
+        </div>
+        <div>
+            <a class="pill" href="{% url 'manager_sessions' %}">← Сессии</a>
+        </div>
+    </form>
+
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+        Период: {% if date_from %}с {{ date_from }}{% else %}без начала{% endif %}
+        {% if date_to %}по {{ date_to }}{% else %}без конца{% endif %}.
+        Всего сотрудников: {{ rows|length }}.
+    </p>
+
+    <div style="overflow-x:auto">
+        <table class="sm-table">
+            <thead>
+            <tr>
+                <th>Сотрудник</th>
+                <th>Email</th>
+                <th class="num">Работа, ч</th>
+                <th class="num">Сессий (раб.)</th>
+                <th class="num">Цех, ч</th>
+                <th class="num">Сессий (цех)</th>
+                <th class="num">Итого, ч</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td><b>{{ r.name }}</b></td>
+                <td style="color:var(--muted)">{{ r.email }}</td>
+                <td class="num">{{ r.work_hours|floatformat:2 }}</td>
+                <td class="num">{{ r.work_sessions }}</td>
+                <td class="num">{{ r.shop_hours|floatformat:2 }}</td>
+                <td class="num">{{ r.shop_sessions }}</td>
+                <td class="num sm-total">{{ r.work_hours|add:r.shop_hours|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px 0">
+                Нет данных за период.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+            {% if rows %}
+            <tfoot>
+            <tr>
+                <td colspan="2">Итого</td>
+                <td class="num">{{ grand.work_hours|floatformat:2 }}</td>
+                <td class="num"></td>
+                <td class="num">{{ grand.shop_hours|floatformat:2 }}</td>
+                <td class="num"></td>
+                <td class="num sm-total">{{ grand.total_hours|floatformat:2 }}</td>
+            </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}

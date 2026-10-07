@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .set-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .set-tabs .pill{font-size:13px}
+    .set-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+</style>
+
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Типовые задачи · {{ types|length }}</h3>
+        <a class="btn green" href="{% url 'settings_task_type_new' %}">+ Новая типовая</a>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Название</th><th>Норма, ч</th><th>Срок, дн</th><th>Активна</th>
+            <th style="text-align:right">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for t in types %}
+        <tr>
+            <td><b>{{ t.name }}</b></td>
+            <td>{{ t.plan_hours|floatformat:1 }}</td>
+            <td>{{ t.due_days }}</td>
+            <td>{% if t.is_active %}
+                <span style="color:var(--green);font-weight:700">✓</span>
+                {% else %}
+                <span style="color:var(--muted)">—</span>
+                {% endif %}</td>
+            <td style="text-align:right;white-space:nowrap">
+                <a class="btn blue" href="{% url 'settings_task_type_edit' t.pk %}"
+                   style="padding:6px 12px;font-size:13px">Изменить</a>
+                <form method="post" action="{% url 'settings_task_type_delete' t.pk %}"
+                      style="display:inline;margin:0"
+                      data-confirm="Удалить «{{ t.name }}»?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn red"
+                            style="padding:6px 12px;font-size:13px">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px 0">
+            Типовых задач пока нет.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

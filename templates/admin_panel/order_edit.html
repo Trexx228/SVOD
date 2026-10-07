@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">
+    {% if order %}Заказ · {{ order.number }}{% else %}Новый заказ{% endif %}
+</h2>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_orders' %}">← Все заказы</a>
+    {% if order %}
+    <a class="pill" href="{% url 'settings_order_detail' order.pk %}">Карточка заказа</a>
+    {% endif %}
+</div>
+
+<div class="card" style="max-width:640px">
+    <form method="post">
+        {% csrf_token %}
+
+        <label>Номер заказа</label>
+        <input name="number" required maxlength="60" value="{{ order.number|default:'' }}"
+               placeholder="Например, 2026-042">
+
+        <label>Изделие</label>
+        <input name="product" required maxlength="200" value="{{ order.product|default:'' }}"
+               placeholder="Например, Генератор ГТ-500">
+        <label>Ответственный</label>
+        <select name="owner">
+            <option value="">— не назначен —</option>
+            {% for u in owners %}
+            <option value="{{ u.pk }}"
+                    {% if order and order.owner_id == u.pk %}selected{% endif %}>
+                {{ u.full_name }}{% if u.department %} · {{ u.department.name }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+
+        <label>Срок отгрузки</label>
+        <input type="date" name="ship_due"
+               value="{% if order.ship_due %}{{ order.ship_due|date:'Y-m-d' }}{% endif %}">
+
+        <label>Комментарий</label>
+        <textarea name="comment" rows="3" placeholder="Опционально">{{ order.comment|default:'' }}</textarea>
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green">
+                {% if order %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </p>
+    </form>
+</div>
+{% endblock %}

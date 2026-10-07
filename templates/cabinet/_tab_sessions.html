@@ -1,0 +1,117 @@
+<style>
+    .ms-tabs{display:flex;gap:8px;margin-bottom:14px}
+    .ms-filter{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;
+               align-items:end;margin-bottom:14px;max-width:640px}
+    .ms-filter label{margin:0 0 4px}
+
+    .ms-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .ms-tbl th,.ms-tbl td{padding:8px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .ms-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .ms-tbl tbody tr:hover{background:var(--soft)}
+    .ms-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ms-tbl a:hover{text-decoration:underline}
+    .ms-h{font-weight:800;color:var(--green)}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;
+           margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Мои сессии · {{ total }}</h3>
+        <span class="pill">часов за период: <b>{{ total_hours|floatformat:1 }}</b></span>
+    </div>
+
+    <div class="ms-tabs">
+        <a class="pill {% if subtab == 'work' %}on{% endif %}"
+           href="?tab=sessions&subtab=work{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+            Работа
+        </a>
+        <a class="pill {% if subtab == 'shop' %}on{% endif %}"
+           href="?tab=sessions&subtab=shop{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+            Цех
+        </a>
+    </div>
+
+    <form method="get" class="ms-filter">
+        <input type="hidden" name="tab" value="sessions">
+        <input type="hidden" name="subtab" value="{{ subtab }}">
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="?tab=sessions&subtab={{ subtab }}">Сброс</a>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="ms-tbl">
+            <thead>
+            {% if subtab == 'work' %}
+            <tr>
+                <th>Завершено</th>
+                <th>Задача</th>
+                <th>Часов</th>
+                <th>Старт</th>
+                <th>Комментарий</th>
+            </tr>
+            {% else %}
+            <tr>
+                <th>Выход</th>
+                <th>Задача</th>
+                <th>Часов</th>
+                <th>Возврат</th>
+            </tr>
+            {% endif %}
+            </thead>
+            <tbody>
+            {% for s in page %}
+            <tr>
+                {% if subtab == 'work' %}
+                <td style="white-space:nowrap">{{ s.finished_at|date:'d.m.Y H:i' }}</td>
+                <td><a href="/tasks/task/{{ s.task.pk }}/">#{{ s.task.pk }} · {{ s.task.title|truncatechars:50 }}</a></td>
+                <td class="ms-h">{{ s.duration_hours|floatformat:2 }} ч</td>
+                <td style="white-space:nowrap">{{ s.started_at|date:'d.m.Y H:i' }}</td>
+                <td style="color:var(--muted)">{{ s.comment|truncatechars:60|default:'—' }}</td>
+                {% else %}
+                <td style="white-space:nowrap">{{ s.started_at|date:'d.m.Y H:i' }}</td>
+                <td><a href="/tasks/task/{{ s.task.pk }}/">#{{ s.task.pk }} · {{ s.task.title|truncatechars:50 }}</a></td>
+                <td class="ms-h">
+                    {% if s.finished_at %}{{ s.duration_hours|floatformat:2 }} ч
+                    {% else %}<span style="color:var(--orange)">в процессе</span>{% endif %}
+                </td>
+                <td style="white-space:nowrap">
+                    {% if s.finished_at %}{{ s.finished_at|date:'d.m.Y H:i' }}{% else %}—{% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="{% if subtab == 'work' %}5{% else %}4{% endif %}"
+                    style="text-align:center;color:var(--muted);padding:30px 0">
+                Сессий нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?tab=sessions&subtab={{ subtab }}{% if page_qs %}&{{ page_qs }}{% endif %}&page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?tab=sessions&subtab={{ subtab }}{% if page_qs %}&{{ page_qs }}{% endif %}&page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .sys-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    @media(max-width:900px){.sys-grid{grid-template-columns:1fr}}
+    .sys-block{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+    .sys-block h4{margin:0 0 10px;font-size:14px;letter-spacing:.2px}
+    .sys-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13px;
+             border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
+    .sys-row:last-child{border-bottom:0}
+    .sys-row .k{color:var(--muted)}
+    .sys-row .v{font-weight:600;text-align:right;word-break:break-all}
+    .sys-stat{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+    .sys-stat .v{font-weight:800}
+    .badge-ok{color:var(--green);font-weight:700}
+    .badge-off{color:var(--muted);font-weight:700}
+    .badge-warn{color:var(--orange);font-weight:700}
+    .badge-err{color:var(--red);font-weight:700}
+    .sys-code{font-family:'Consolas','Menlo',monospace;font-size:12px;
+              background:var(--card);border:1px solid var(--line);border-radius:8px;
+              padding:6px 8px;word-break:break-all}
+</style>
+
+<div class="sys-grid">
+    <div class="sys-block">
+        <h4>Версии и окружение</h4>
+        <div class="sys-row"><span class="k">Python</span><span class="v">{{ versions.python }} ({{ versions.python_impl }})</span></div>
+        <div class="sys-row"><span class="k">Django</span><span class="v">{{ versions.django }}</span></div>
+        <div class="sys-row"><span class="k">ОС</span><span class="v">{{ versions.platform }}</span></div>
+        <div class="sys-row"><span class="k">DEBUG</span>
+            <span class="v {% if env_info.DEBUG %}badge-warn{% else %}badge-ok{% endif %}">
+                {% if env_info.DEBUG %}включён{% else %}выключен{% endif %}
+            </span>
+        </div>
+        <div class="sys-row"><span class="k">Часовой пояс</span><span class="v">{{ env_info.TIME_ZONE }}</span></div>
+        <div class="sys-row"><span class="k">Язык</span><span class="v">{{ env_info.LANGUAGE_CODE }}</span></div>
+        <div class="sys-row"><span class="k">AUTH_USER_MODEL</span><span class="v">{{ env_info.AUTH_USER_MODEL }}</span></div>
+    </div>
+
+    <div class="sys-block">
+        <h4>База данных</h4>
+        <div class="sys-row"><span class="k">Движок</span><span class="v">{{ db_info.engine }}</span></div>
+        <div class="sys-row"><span class="k">Файл</span><span class="v">{{ db_info.name }}</span></div>
+        <div class="sys-row"><span class="k">Размер</span><span class="v">{{ db_info.size }}</span></div>
+        <div class="sys-row"><span class="k">Таблиц</span><span class="v">{{ db_info.tables }}</span></div>
+        {% if db_info.error %}<div class="sys-row"><span class="k">Ошибка</span><span class="v badge-err">{{ db_info.error }}</span></div>{% endif %}
+    </div>
+
+    <div class="sys-block">
+        <h4>Active Directory</h4>
+        <div class="sys-row"><span class="k">AD_ENABLED</span>
+            <span class="v {% if ad_info.enabled %}badge-ok{% else %}badge-off{% endif %}">
+                {% if ad_info.enabled %}да{% else %}нет{% endif %}
+            </span>
+        </div>
+        <div class="sys-row"><span class="k">Сервер</span><span class="v">{{ ad_info.server }}</span></div>
+        <div class="sys-row"><span class="k">Домен</span><span class="v">{{ ad_info.domain }}</span></div>
+        <div class="sys-row"><span class="k">User base</span><span class="v">{{ ad_info.user_base }}</span></div>
+        <div class="sys-row"><span class="k">Mail domain</span><span class="v">{{ ad_info.mail_domain }}</span></div>
+
+        <div style="margin-top:8px">
+            <div class="k" style="color:var(--muted);font-size:12px;margin-bottom:4px">Маппинг групп:</div>
+            <div class="sys-code">
+                {% for group, role in ad_info.group_map.items %}{{ group }} → {{ role }}<br>{% empty %}—{% endfor %}
+            </div>
+        </div>
+
+        {% if ad_info.enabled %}
+        <form method="get" style="margin-top:10px">
+            <input type="hidden" name="check_ad" value="1">
+            <button type="submit" class="btn blue" style="padding:6px 12px;font-size:13px">Проверить доступность</button>
+        </form>
+        {% if ad_check %}
+        <div style="margin-top:8px;font-size:13px">
+            {% if ad_check.ok %}
+            <span class="badge-ok">✓ {{ ad_check.message }}</span>
+            {% else %}
+            <span class="badge-err">✗ {{ ad_check.message }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <div class="sys-block">
+        <h4>Счётчики записей</h4>
+        <div class="sys-stat"><span>Пользователи</span><span class="v">{{ counters.users }} (акт. {{ counters.users_active }})</span></div>
+        <div class="sys-stat"><span>Роли</span><span class="v">{{ counters.roles }}</span></div>
+        <div class="sys-stat"><span>Подразделения</span><span class="v">{{ counters.departments }}</span></div>
+        <div class="sys-stat"><span>Типовые задачи</span><span class="v">{{ counters.task_types }}</span></div>
+        <div class="sys-stat"><span>Нормы часов</span><span class="v">{{ counters.norms }}</span></div>
+        <div class="sys-stat"><span>Задачи</span><span class="v">{{ counters.tasks }} (акт. {{ counters.tasks_active }})</span></div>
+        <div class="sys-stat"><span>Записи аудита</span><span class="v">{{ counters.audit_records }}</span></div>
+        <div class="sys-stat"><span>События входов</span><span class="v">{{ counters.login_events }}</span></div>
+        <div class="sys-stat"><span>Алерты (не прочитано)</span><span class="v">{{ counters.alerts_unseen }}</span></div>
+    </div>
+</div>
+
+<div class="sys-block">
+    <h4>Настройки безопасности и хосты</h4>
+    <div class="sys-row"><span class="k">ALLOWED_HOSTS</span>
+        <span class="v">{{ env_info.ALLOWED_HOSTS|join:', ' }}</span>
+    </div>
+    <div class="sys-row"><span class="k">AUTHENTICATION_BACKENDS</span>
+        <span class="v">
+            {% for b in env_info.AUTH_BACKENDS %}<div>{{ b }}</div>{% endfor %}
+        </span>
+    </div>
+</div>
+<div class="sys-block" style="margin-top:14px">
+    <h4>Обслуживание</h4>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
+        Удаление устаревших записей по политике хранения:
+        аудит — 180 дней, входы — 90 дней, прочитанные уведомления — 30 дней,
+        снимки хронологии — 400 дней. Действие необратимо.
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn blue" href="{% url 'settings_backups' %}">Резервные копии</a>
+        <a class="btn green" href="{% url 'settings_export_snapshot' %}">Экспорт админки (ZIP)</a>
+        <form method="post" action="{% url 'settings_system_cleanup' %}"
+              style="margin:0"
+              data-confirm="Удалить устаревшие записи? Отменить будет нельзя. Рекомендуем сначала снять бэкап.">
+            {% csrf_token %}
+            <button type="submit" class="btn red">Очистить устаревшие записи</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

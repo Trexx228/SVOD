@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="График работы" %}
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'manager_schedules' %}">← Все графики</a>
+    <a class="btn blue" href="{% url 'manager_schedule_edit' schedule.pk %}">Редактировать</a>
+    {% if not departments and not personal_users and not via_departments %}
+    <form method="post" action="{% url 'manager_schedule_delete' schedule.pk %}"
+          style="margin:0"
+          data-confirm="Удалить график «{{ schedule.name }}»? Действие необратимо.">
+        {% csrf_token %}
+        <button type="submit" class="btn red">Удалить</button>
+    </form>
+    {% else %}
+    <span class="pill" style="opacity:.55;cursor:not-allowed"
+          title="График используется — сначала отвяжите отделы и людей">
+        Удаление недоступно
+    </span>
+    {% endif %}
+</div>
+
+<style>
+    .sd-head{
+        display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+        margin-bottom:14px;
+    }
+    .sd-head h2{margin:0;font-size:22px;font-weight:800}
+    .sd-sum{color:var(--muted);font-size:13px;margin-top:4px}
+
+    .sd-grid{
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+        gap:10px;margin-bottom:16px;
+    }
+    .sd-stat{
+        background:var(--soft);border:1px solid var(--line);
+        border-radius:12px;padding:10px 14px;
+    }
+    .sd-stat .l{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .sd-stat .v{font-size:20px;font-weight:800;margin-top:2px}
+    .sd-stat.ok .v{color:var(--green)}
+    .sd-stat.info .v{color:var(--blue)}
+    .sd-stat.warn .v{color:var(--orange)}
+
+    .sd-pattern{
+        display:flex;gap:4px;flex-wrap:wrap;font-family:'Consolas','Menlo',monospace;
+        font-size:13px;margin:6px 0 12px;
+    }
+    .sd-pattern .cell{
+        display:inline-flex;align-items:center;justify-content:center;
+        width:24px;height:24px;border-radius:6px;
+        font-weight:700;
+    }
+    .sd-pattern .cell.w{background:color-mix(in srgb,var(--green) 70%,transparent);color:#fff}
+    .sd-pattern .cell.o{background:var(--soft);color:var(--muted)}
+
+    .sd-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px}
+    .sd-cal .cell{
+        background:var(--soft);border:1px solid var(--line);border-radius:8px;
+        padding:6px;text-align:center;font-size:11px;min-height:44px;
+        display:flex;flex-direction:column;justify-content:center;gap:2px;
+    }
+    .sd-cal .cell.work{background:color-mix(in srgb,var(--green) 18%,var(--soft));
+                       border-color:color-mix(in srgb,var(--green) 40%,var(--line))}
+    .sd-cal .cell.holiday{background:color-mix(in srgb,var(--red) 15%,var(--soft));
+                          border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
+    .sd-cal .cell.transfer{background:color-mix(in srgb,var(--orange) 15%,var(--soft));
+                           border-color:color-mix(in srgb,var(--orange) 40%,var(--line))}
+    .sd-cal .cell.today{outline:2px solid var(--blue);outline-offset:1px}
+    .sd-cal .d{font-weight:800}
+    .sd-cal .wd{color:var(--muted);font-size:10px;text-transform:uppercase}
+    .sd-cal .nm{font-size:10px;color:var(--muted);line-height:1.1;
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    .sd-people{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:900px){.sd-people{grid-template-columns:1fr}}
+    .sd-people h3{margin:0 0 8px;font-size:14px;font-weight:800}
+    .sd-people ul{list-style:none;padding:0;margin:0}
+    .sd-people li{
+        padding:6px 10px;border-bottom:1px dashed var(--line);
+        display:flex;justify-content:space-between;gap:8px;font-size:13px;
+    }
+    .sd-people li:last-child{border-bottom:0}
+    .sd-people .meta{color:var(--muted);font-size:12px}
+    .sd-people .empty{color:var(--muted);font-size:13px;padding:6px 0}
+</style>
+
+<div class="card">
+    <div class="sd-head">
+        <div>
+            <h2>{{ schedule.name }}</h2>
+            <div class="sd-sum">
+                {{ summary }}
+                {% if cycle_length %}· цикл {{ cycle_length }} дн.{% endif %}
+                · <b>{{ schedule.hours_per_shift|floatformat:'-2' }}</b> ч/смена
+            </div>
+            {% if schedule.description %}
+            <div style="color:var(--muted);font-size:13px;margin-top:6px">
+                {{ schedule.description }}
+            </div>
+            {% endif %}
+        </div>
+        <div style="text-align:right">
+            {% if schedule.use_calendar %}
+            <div style="font-size:13px;color:var(--blue);font-weight:700">
+                📅 Учитывает производственный календарь
+            </div>
+            <div style="color:var(--muted);font-size:12px;max-width:280px;margin-top:2px">
+                Праздники РФ и переносы переопределяют паттерн.
+            </div>
+            {% else %}
+            <div style="font-size:13px;color:var(--orange);font-weight:700">
+                Без производственного календаря
+            </div>
+            <div style="color:var(--muted);font-size:12px;max-width:280px;margin-top:2px">
+                Работаем строго по паттерну. Праздник — обычная смена.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="sd-grid">
+        <div class="sd-stat info">
+            <div class="l">Отделы</div>
+            <div class="v">{{ departments|length }}</div>
+        </div>
+        <div class="sd-stat ok">
+            <div class="l">Личных</div>
+            <div class="v">{{ personal_users|length }}</div>
+        </div>
+        <div class="sd-stat">
+            <div class="l">Через отдел</div>
+            <div class="v">{{ via_departments|length }}</div>
+        </div>
+        <div class="sd-stat {% if schedule.is_active %}ok{% else %}warn{% endif %}">
+            <div class="l">Активен</div>
+            <div class="v">{% if schedule.is_active %}да{% else %}нет{% endif %}</div>
+        </div>
+        <div class="sd-stat">
+            <div class="l">Якорь цикла</div>
+            <div class="v" style="font-size:14px">{{ schedule.anchor_date|date:'d.m.Y' }}</div>
+        </div>
+    </div>
+
+    <b style="display:block;margin:8px 0 0;font-size:13px">Паттерн</b>
+    <div class="sd-pattern">
+        {% for x in schedule.pattern %}
+        <span class="cell {% if x %}w{% else %}o{% endif %}"
+              title="{% if x %}рабочий{% else %}выходной{% endif %}">
+            {{ x }}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Превью на 28 дней</h3>
+    <p style="color:var(--muted);font-size:12px;margin:0 0 10px">
+        Зелёное — рабочий по паттерну, красное — праздник,
+        оранжевое — перенос. Окружённое синим — сегодня.
+    </p>
+    <div class="sd-cal">
+        {% for d in preview_28 %}
+        <div class="cell
+            {% if d.is_working and d.source == 'schedule' %}work
+            {% elif d.source == 'holiday' %}holiday
+            {% elif d.source == 'transfer' %}transfer
+            {% elif d.is_working %}work
+            {% endif %}
+            {% if d.is_today %}today{% endif %}">
+            <span class="d">{{ d.day }}</span>
+            <span class="wd">{{ d.date|date:'D' }}</span>
+            {% if d.name and d.name != 'Рабочий день' and d.name != 'Выходной' %}
+            <span class="nm" title="{{ d.name }}">{{ d.name|truncatechars:14 }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="sd-people">
+    <div class="card">
+        <h3>Отделы с этим графиком</h3>
+        {% if departments %}
+        <ul>
+            {% for d in departments %}
+            <li>
+                <span><b>{{ d.name }}</b></span>
+                <span class="meta">
+                    <form method="post"
+                          action="{% url 'manager_schedule_unassign' schedule.pk %}"
+                          style="display:inline;margin:0"
+                          data-confirm="Снять график с отдела «{{ d.name }}»? Отдел вернётся на встроенный 5/2 + праздники.">
+                        {% csrf_token %}
+                        <input type="hidden" name="target_type" value="department">
+                        <input type="hidden" name="target_id" value="{{ d.pk }}">
+                        <button type="submit" class="btn red"
+                                style="padding:3px 10px;font-size:12px">Снять</button>
+                    </form>
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty">Ни один отдел не использует этот график по умолчанию.</div>
+        {% endif %}
+
+        <b style="display:block;margin-top:14px;font-size:13px">Назначить отделу</b>
+        <form method="post"
+              action="{% url 'manager_schedule_assign' schedule.pk %}"
+              style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            {% csrf_token %}
+            <input type="hidden" name="target_type" value="department">
+            <select name="target_id" style="max-width:320px;margin:0" required>
+                <option value="">— назначить отделу —</option>
+                {% for d in all_departments %}
+                {% if d not in departments %}
+                <option value="{{ d.pk }}">{{ d.name }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn blue" style="padding:8px 16px">Назначить</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Личные графики</h3>
+        {% if personal_users %}
+        <ul>
+            {% for u in personal_users %}
+            <li>
+                <span>
+                    <b>{{ u.full_name }}</b>
+                    <span class="meta"> · {{ u.department.name|default:'—' }}</span>
+                </span>
+                <span class="meta">
+                    <form method="post"
+                          action="{% url 'manager_schedule_unassign' schedule.pk %}"
+                          style="display:inline;margin:0"
+                          data-confirm="Снять личный график с «{{ u.full_name }}»? Он вернётся на график отдела.">
+                        {% csrf_token %}
+                        <input type="hidden" name="target_type" value="user">
+                        <input type="hidden" name="target_id" value="{{ u.pk }}">
+                        <button type="submit" class="btn red"
+                                style="padding:3px 10px;font-size:12px">Снять</button>
+                    </form>
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty">Никому не назначен лично.</div>
+        {% endif %}
+
+        <b style="display:block;margin-top:14px;font-size:13px">Назначить сотруднику</b>
+        <form method="post"
+              action="{% url 'manager_schedule_assign' schedule.pk %}"
+              style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            {% csrf_token %}
+            <input type="hidden" name="target_type" value="user">
+            <select name="target_id" style="max-width:320px;margin:0" required>
+                <option value="">— назначить сотруднику —</option>
+                {% for u in all_users %}
+                {% if u not in personal_users %}
+                <option value="{{ u.pk }}">
+                    {{ u.full_name }}{% if u.department %} · {{ u.department.name }}{% endif %}
+                </option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn blue" style="padding:8px 16px">Назначить</button>
+        </form>
+    </div>
+</div>
+
+{% if via_departments %}
+<div class="card">
+    <h3 style="margin:0 0 10px">Попадают через отдел ({{ via_departments|length }})</h3>
+    <p style="color:var(--muted);font-size:12px;margin:0 0 10px">
+        У этих сотрудников нет личного графика, они используют график отдела.
+        Если назначить им личный — он перебьёт этот.
+    </p>
+    <ul style="list-style:none;padding:0;margin:0;columns:2;column-gap:24px">
+        {% for u in via_departments %}
+        <li style="padding:4px 0;font-size:13px;break-inside:avoid">
+            <b>{{ u.full_name }}</b>
+            <span class="meta" style="color:var(--muted)"> · {{ u.department.name|default:'—' }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% endblock %}

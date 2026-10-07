@@ -1,0 +1,57 @@
+<div class="btn-group mb-3 flex-wrap align-items-start" role="group">
+    <a href="{% url 'manager_reports' %}?period=month"
+       class="btn {% if active == 'month' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        📅 Месяц
+    </a>
+
+    <details class="dropdown-details">
+        <summary class="btn {% if active == 'quarter' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            📊 Квартал{% if active == 'quarter' %}: {{ year }}·Q{{ quarter }}{% endif %} ▾
+        </summary>
+        <div class="dropdown-menu-custom">
+            {% for q in "1234" %}
+            <a href="{% url 'manager_reports' %}?period=quarter&year={{ cur_year }}&quarter={{ q }}">
+                {{ cur_year }} · Квартал {{ q }}
+            </a>
+            {% endfor %}
+        </div>
+    </details>
+
+    <details class="dropdown-details">
+        <summary class="btn {% if active == 'year' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            📈 Год{% if active == 'year' %}: {{ year }}{% endif %} ▾
+        </summary>
+        <div class="dropdown-menu-custom">
+            {% for y in years_available %}
+            <a href="{% url 'manager_reports' %}?period=year&year={{ y }}">{{ y }}</a>
+            {% empty %}
+            <a href="#">Нет доступных лет</a>
+            {% endfor %}
+        </div>
+    </details>
+
+    <a href="{% url 'manager_reports' %}?kind=analytics"
+       class="btn {% if active == 'analytics' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        📉 Динамика и качество
+    </a>
+
+    <a href="{% url 'manager_reports' %}?kind=dynamics"
+       class="btn {% if active == 'dynamics' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        📊 Динамика отдела
+    </a>
+
+    <a href="{% url 'manager_reports' %}?kind=orders"
+       class="btn {% if active == 'orders' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        📦 По заказам
+    </a>
+
+    <a href="{% url 'manager_reports' %}?kind=kpi"
+       class="btn {% if active == 'kpi' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        🎯 KPI-отчёт
+    </a>
+
+    <a href="{% url 'manager_reports' %}?kind=departments"
+       class="btn {% if active == 'departments' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        🏢 По отделам
+    </a>
+</div>

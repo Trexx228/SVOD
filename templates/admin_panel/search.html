@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .gs-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+    .gs-form input{flex:1 1 320px}
+    .gs-group{margin-bottom:18px}
+    .gs-group h3{margin:0 0 10px;font-size:15px;display:flex;gap:8px;align-items:center}
+    .gs-count{color:var(--muted);font-weight:600;font-size:13px}
+    .gs-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+    .gs-list li{background:var(--soft);border:1px solid var(--line);border-radius:12px;
+                padding:10px 14px;display:flex;justify-content:space-between;gap:12px;
+                align-items:flex-start;flex-wrap:wrap}
+    .gs-list a{font-weight:700;text-decoration:none;color:var(--ink)}
+    .gs-list a:hover{color:var(--blue)}
+    .gs-meta{color:var(--muted);font-size:12px}
+    .gs-empty{color:var(--muted);padding:8px 0;font-size:13px}
+</style>
+
+<div class="card">
+    <h3 style="margin:0 0 12px">Поиск по порталу</h3>
+
+    <form method="get" class="gs-form">
+        <input name="q" value="{{ q }}" placeholder="ФИО, email, роль, отдел, типовая, задача…" autofocus>
+        <button type="submit" class="btn blue">Найти</button>
+    </form>
+
+    {% if not q %}
+    <p class="gs-empty">Введите запрос. Ищет по пользователям, ролям, подразделениям, типовым задачам и задачам.</p>
+    {% else %}
+    <p class="gs-meta" style="margin-bottom:16px">
+        Запрос: <b>{{ q }}</b> · найдено:
+        {{ counts.users }} польз. · {{ counts.roles }} ролей ·
+        {{ counts.departments }} отделов · {{ counts.task_types }} типовых ·
+        {{ counts.tasks }} задач
+    </p>
+
+    {% if counts.users %}
+    <div class="gs-group">
+        <h3>Пользователи <span class="gs-count">{{ counts.users }}</span></h3>
+        <ul class="gs-list">
+            {% for u in results.users %}
+            <li>
+                <div>
+                    <a href="{% url 'settings_user_edit' u.pk %}">{{ u.full_name }}</a>
+                    <div class="gs-meta">{{ u.email }}
+                        {% if u.department %} · {{ u.department.name }}{% endif %}
+                        {% if u.role %} · {{ u.role.name }}{% endif %}
+                        {% if not u.is_active %} · <b style="color:var(--red)">отключён</b>{% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if counts.roles %}
+    <div class="gs-group">
+        <h3>Роли <span class="gs-count">{{ counts.roles }}</span></h3>
+        <ul class="gs-list">
+            {% for r in results.roles %}
+            <li>
+                <div>
+                    <a href="{% url 'settings_role_edit' r.pk %}">{{ r.name }}</a>
+                    <div class="gs-meta">
+                        <code>{{ r.code }}</code>
+                        {% if r.can_admin %} · админ{% endif %}
+                        {% if r.can_manage %} · управление{% endif %}
+                        {% if r.can_plant %} · свод по заводу{% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if counts.departments %}
+    <div class="gs-group">
+        <h3>Подразделения <span class="gs-count">{{ counts.departments }}</span></h3>
+        <ul class="gs-list">
+            {% for d in results.departments %}
+            <li>
+                <div>
+                    <a href="{% url 'settings_department_edit' d.pk %}">{{ d.name }}</a>
+                    <div class="gs-meta">создано {{ d.created_at|date:'d.m.Y' }}</div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if counts.task_types %}
+    <div class="gs-group">
+        <h3>Типовые задачи <span class="gs-count">{{ counts.task_types }}</span></h3>
+        <ul class="gs-list">
+            {% for t in results.task_types %}
+            <li>
+                <div>
+                    <a href="{% url 'settings_task_type_edit' t.pk %}">{{ t.name }}</a>
+                    <div class="gs-meta">
+                        {{ t.plan_hours|floatformat:1 }} ч · {{ t.due_days }} дн
+                        {% if not t.is_active %} · <b style="color:var(--muted)">неактивна</b>{% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if counts.tasks %}
+    <div class="gs-group">
+        <h3>Задачи <span class="gs-count">{{ counts.tasks }}</span></h3>
+        <ul class="gs-list">
+            {% for t in results.tasks %}
+            <li>
+                <div>
+                    <a href="/tasks/task/{{ t.pk }}/" target="_blank">{{ t.title|truncatechars:90 }}</a>
+                    <div class="gs-meta">
+                        #{{ t.pk }} · {{ t.get_status_display }} ·
+                        исп. {{ t.executor.full_name|default:'—' }} ·
+                        пост. {{ t.requester.full_name|default:'—' }}
+                        {% if t.due %} · срок {{ t.due|date:'d.m.Y' }}{% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if not counts.users and not counts.roles and not counts.departments and not counts.task_types and not counts.tasks %}
+    <p class="gs-empty">Ничего не найдено.</p>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

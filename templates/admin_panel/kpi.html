@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+{% include 'admin_panel/_redirect_notice.html' with cabinet_url='/manager/cabinet/' %}
+{% if is_narrow_scope %}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 40%,var(--line));
+            margin-bottom:14px;padding:10px 16px;font-size:13px">
+    Показаны данные только по вашему подразделению:
+    <b>{{ scope_department.name }}</b>.
+</div>
+{% endif %}
+
+<style>
+    .kpi-filter{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;
+                align-items:end;margin-bottom:14px;max-width:820px}
+    @media(max-width:800px){.kpi-filter{grid-template-columns:1fr 1fr}}
+    .kpi-filter label{margin:0 0 4px}
+
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+    .kpi-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+    .kpi-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .kpi-stat .v{font-size:24px;font-weight:800;letter-spacing:-.02em}
+    .kpi-stat .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .kpi-stat.ok .v{color:var(--green)}
+    .kpi-stat.warn .v{color:var(--orange)}
+    .kpi-stat.danger .v{color:var(--red)}
+    .kpi-stat.info .v{color:var(--blue)}
+
+    .kpi-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .kpi-tbl th,.kpi-tbl td{padding:8px 10px;border-bottom:1px solid var(--line);
+                            text-align:left;vertical-align:middle}
+    .kpi-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                letter-spacing:.4px;font-weight:700}
+    .kpi-tbl tbody tr:hover{background:var(--soft)}
+    .kpi-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+    .kpi-tbl tfoot td{font-weight:800;background:var(--soft);border-top:2px solid var(--line)}
+    .kpi-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .kpi-tbl a:hover{text-decoration:underline}
+
+    .kpi-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    @media(max-width:900px){.kpi-cols{grid-template-columns:1fr}}
+
+    .kpi-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .kpi-badge.ok{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .kpi-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .kpi-badge.danger{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+    .kpi-badge.info{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .kpi-delta-pos{color:var(--red);font-weight:700}
+    .kpi-delta-neg{color:var(--green);font-weight:700}
+</style>
+
+<div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn green"
+           href="{% url 'settings_kpi' %}?date_from={{ date_from }}&date_to={{ date_to }}{% if dept_pk %}&dept={{ dept_pk }}{% endif %}&format=xlsx">
+            Excel
+        </a>
+        <a class="btn gray"
+           href="{% url 'settings_kpi' %}?date_from={{ date_from }}&date_to={{ date_to }}{% if dept_pk %}&dept={{ dept_pk }}{% endif %}&format=csv">
+            CSV
+        </a>
+        <a class="pill" href="{% url 'settings_analytics_departments' %}?date_from={{ date_from }}&date_to={{ date_to }}">
+            Разрез по отделам →
+        </a>
+    </div>
+    </div>
+
+    <form method="get" class="kpi-filter">
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div>
+            <label>Подразделение</label>
+            <select name="dept">
+                <option value="">— все —</option>
+                {% for d in departments %}
+                <option value="{{ d.pk }}" {% if dept_pk == d.pk|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_kpi' %}">Сброс</a>
+        </div>
+    </form>
+
+    <div class="kpi-grid">
+        <div class="kpi-stat info">
+            <div class="l">Задач готово</div>
+            <div class="v">{{ grand.tasks_done }}</div>
+            <div class="h">в срок: {{ grand.on_time }} · просроч.: {{ grand.overdue }}</div>
+        </div>
+        <div class="kpi-stat {% if grand.on_time_pct >= 80 %}ok{% elif grand.on_time_pct >= 50 %}warn{% else %}danger{% endif %}">
+            <div class="l">В срок</div>
+            <div class="v">{{ grand.on_time_pct }}%</div>
+            <div class="h">{{ grand.on_time }} из {{ grand.tasks_done }}</div>
+        </div>
+        <div class="kpi-stat">
+            <div class="l">План, ч</div>
+            <div class="v">{{ grand.plan_hours|floatformat:1 }}</div>
+        </div>
+        <div class="kpi-stat">
+            <div class="l">Факт, ч</div>
+            <div class="v">{{ grand.fact_hours|floatformat:1 }}</div>
+        </div>
+        <div class="kpi-stat {% if grand.delta > 0 %}warn{% else %}ok{% endif %}">
+            <div class="l">Δ факт − план</div>
+            <div class="v">{% if grand.delta > 0 %}+{% endif %}{{ grand.delta|floatformat:1 }}</div>
+            <div class="h">{% if grand.delta > 0 %}переработка{% else %}сэкономлено{% endif %}</div>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto">
+        <table class="kpi-tbl">
+            <thead>
+            <tr>
+                <th>Сотрудник</th>
+                <th>Подразделение</th>
+                <th class="num">Задач</th>
+                <th class="num">В срок</th>
+                <th class="num">%</th>
+                <th class="num">План, ч</th>
+                <th class="num">Факт, ч</th>
+                <th class="num">Δ, ч</th>
+                <th class="num">КПД, %</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <a href="{% url 'settings_user_detail' r.user.pk %}">{{ r.user.full_name }}</a>
+                    {% if r.user.role %}<div style="color:var(--muted);font-size:11px">{{ r.user.role.name }}</div>{% endif %}
+                </td>
+                <td style="color:var(--muted)">{{ r.user.department.name|default:'—' }}</td>
+                <td class="num">{{ r.tasks_done }}</td>
+                <td class="num">{{ r.on_time }}</td>
+                <td class="num">
+                    <span class="kpi-badge {% if r.on_time_pct >= 80 %}ok{% elif r.on_time_pct >= 50 %}warn{% else %}danger{% endif %}">
+                        {{ r.on_time_pct }}%
+                    </span>
+                </td>
+                <td class="num">{{ r.plan_hours|floatformat:2 }}</td>
+                <td class="num">{{ r.fact_hours|floatformat:2 }}</td>
+                <td class="num">
+                    {% if r.delta > 0.01 %}<span class="kpi-delta-pos">+{{ r.delta|floatformat:2 }}</span>
+                    {% elif r.delta < -0.01 %}<span class="kpi-delta-neg">{{ r.delta|floatformat:2 }}</span>
+                    {% else %}0,00{% endif %}
+                </td>
+                <td class="num">
+                    <span class="kpi-badge {% if r.efficiency >= 100 %}ok{% elif r.efficiency >= 80 %}info{% else %}warn{% endif %}">
+                        {{ r.efficiency }}%
+                    </span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px 0">
+                Нет завершённых задач за период.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+            {% if rows %}
+            <tfoot>
+            <tr>
+                <td colspan="2">ИТОГО</td>
+                <td class="num">{{ grand.tasks_done }}</td>
+                <td class="num">{{ grand.on_time }}</td>
+                <td class="num">{{ grand.on_time_pct }}%</td>
+                <td class="num">{{ grand.plan_hours|floatformat:2 }}</td>
+                <td class="num">{{ grand.fact_hours|floatformat:2 }}</td>
+                <td class="num">
+                    {% if grand.delta > 0 %}+{% endif %}{{ grand.delta|floatformat:2 }}
+                </td>
+                <td class="num"></td>
+            </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<div class="kpi-cols">
+    <div class="card">
+        <h3 style="margin:0 0 10px">Топ переработок</h3>
+        <p style="color:var(--muted);font-size:12px;margin:0 0 10px">
+            Факт существенно превысил план — риск выгорания / неверное нормирование.
+        </p>
+        <table class="kpi-tbl">
+            <thead><tr><th>Сотрудник</th><th class="num">Δ, ч</th><th class="num">Факт</th></tr></thead>
+            <tbody>
+            {% for r in top_over %}
+            <tr>
+                <td><a href="{% url 'settings_user_detail' r.user.pk %}">{{ r.user.full_name }}</a></td>
+                <td class="num kpi-delta-pos">+{{ r.delta|floatformat:2 }}</td>
+                <td class="num">{{ r.fact_hours|floatformat:1 }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" style="color:var(--muted);padding:14px">Нет данных.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Работают быстрее плана</h3>
+        <p style="color:var(--muted);font-size:12px;margin:0 0 10px">
+            Факт меньше плана — либо эффективность, либо заниженные нормы.
+        </p>
+        <table class="kpi-tbl">
+            <thead><tr><th>Сотрудник</th><th class="num">Δ, ч</th><th class="num">Факт</th></tr></thead>
+            <tbody>
+            {% for r in top_fast %}
+            <tr>
+                <td><a href="{% url 'settings_user_detail' r.user.pk %}">{{ r.user.full_name }}</a></td>
+                <td class="num kpi-delta-neg">{{ r.delta|floatformat:2 }}</td>
+                <td class="num">{{ r.fact_hours|floatformat:1 }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" style="color:var(--muted);padding:14px">Нет данных.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Просроченные задачи в периоде</h3>
+    <table class="kpi-tbl">
+        <thead><tr><th>Задача</th><th>Исполнитель</th><th>Срок</th><th class="num">Дней</th></tr></thead>
+        <tbody>
+        {% for t in overdue_tasks %}
+        <tr>
+            <td>
+                <a href="/tasks/task/{{ t.pk }}/" target="_blank">#{{ t.pk }} · {{ t.title|truncatechars:60 }}</a>
+                <div style="color:var(--muted);font-size:11px">{{ t.get_status_display }} · от {{ t.requester.full_name|default:'—' }}</div>
+            </td>
+            <td>{{ t.executor.full_name|default:'—' }}</td>
+            <td>{{ t.due|date:'d.m.Y' }}</td>
+            <td class="num" style="color:var(--red);font-weight:700">
+                {{ t.due|timesince:today }}
+            </td>
+        </tr>
+        {% empty %}<tr><td colspan="4" style="color:var(--muted);padding:14px">Просрочек нет.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

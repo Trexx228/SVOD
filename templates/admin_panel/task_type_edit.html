@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .set-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .set-tabs .pill{font-size:13px}
+    .set-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+</style>
+
+<h2 style="margin:0 0 14px">
+    {% if tt %}Типовая задача · {{ tt.name }}{% else %}Новая типовая задача{% endif %}
+</h2>
+
+<p style="margin-bottom:14px"><a class="pill" href="{% url 'settings_task_types' %}">← Все типовые</a></p>
+
+<div class="card" style="max-width:560px">
+    <form method="post">
+        {% csrf_token %}
+        <label>Название</label>
+        <input name="name" required maxlength="200" value="{{ tt.name|default:'' }}"
+               placeholder="Например, Подготовка чертежа А3">
+
+        <label>Норма времени, ч</label>
+        <input name="plan_hours" required value="{{ tt.plan_hours|default:'1.0' }}"
+               placeholder="2.5">
+
+        <label>Срок, дней</label>
+        <input type="number" name="due_days" required min="1" value="{{ tt.due_days|default:1 }}">
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+            <input type="checkbox" name="is_active" value="1" style="width:auto"
+                   {% if not tt or tt.is_active %}checked{% endif %}>
+            Активна
+        </label>
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn green">
+                {% if tt %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </p>
+    </form>
+</div>
+{% endblock %}

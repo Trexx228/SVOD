@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Заказ · {{ order.number }}</h2>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_orders' %}">← Все заказы</a>
+    <a class="pill" href="{% url 'settings_order_edit' order.pk %}">Редактировать</a>
+    <a class="pill" href="{% url 'settings_branch_new' order.pk %}">+ Ветка</a>
+    <a class="pill" href="{% url 'settings_tasks_page' %}?q={{ order.number }}">Задачи в поиске</a>
+</div>
+
+<style>
+    .od-head{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+    .od-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+    .od-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .od-stat .v{font-size:22px;font-weight:800;letter-spacing:-.01em}
+    .od-stat.ok .v{color:var(--green)}
+    .od-stat.info .v{color:var(--blue)}
+    .od-stat.warn .v{color:var(--orange)}
+
+    .od-branch{border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+               background:var(--soft);margin-bottom:12px}
+    .od-branch-head{display:flex;justify-content:space-between;align-items:center;
+                    gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    .od-branch-head h4{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+
+    .od-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .od-tbl th,.od-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .od-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .od-tbl tbody tr:hover{background:var(--card)}
+    .od-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .od-tbl a:hover{text-decoration:underline}
+    .od-meta{color:var(--muted);font-size:11px}
+    .od-status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;
+               background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+    .od-status.done{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .od-status.in_progress{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .od-status.review{background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange)}
+    .od-status.cancelled{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+    .od-bar{flex:1 1 auto;min-width:80px;height:6px;border-radius:999px;
+            background:color-mix(in srgb,var(--line) 70%,transparent);overflow:hidden}
+    .od-bar > div{height:100%;background:linear-gradient(90deg,var(--blue),var(--green))}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;
+              gap:14px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+            <div style="font-size:22px;font-weight:800">Заказ {{ order.number }}</div>
+            <div style="color:var(--muted);font-size:14px;margin-top:2px">{{ order.product }}</div>
+            {% if order.owner %}
+            <div style="font-size:13px;margin-top:6px">
+                Ответственный: <b>{{ order.owner.full_name }}</b>
+                {% if order.owner.department %}
+                <span style="color:var(--muted)">· {{ order.owner.department.name }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% if order.comment %}
+            <div style="margin-top:8px;font-size:13px;white-space:pre-wrap">{{ order.comment }}</div>
+            {% endif %}
+        </div>
+        <div style="text-align:right">
+            <div class="od-meta">Срок отгрузки</div>
+            <div style="font-weight:700;font-size:16px">
+                {% if order.ship_due %}{{ order.ship_due|date:'d.m.Y' }}{% else %}—{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="od-head">
+        <div class="od-stat">
+            <div class="l">Прогресс</div>
+            <div class="v">{{ progress }}%</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+                <div class="od-bar"><div style="width:{{ progress }}%"></div></div>
+            </div>
+        </div>
+        <div class="od-stat info">
+            <div class="l">Всего задач</div>
+            <div class="v">{{ total }}</div>
+        </div>
+        <div class="od-stat ok">
+            <div class="l">Готово</div>
+            <div class="v">{{ done }}</div>
+        </div>
+        <div class="od-stat warn">
+            <div class="l">В работе</div>
+            <div class="v">{{ active }}</div>
+        </div>
+        <div class="od-stat">
+            <div class="l">Отменено</div>
+            <div class="v">{{ cancelled }}</div>
+        </div>
+
+        {% if order.work_days_to_ship is not None %}
+        <div class="od-stat" title="Всего рабочих дней от начала контракта до отгрузки">
+            <div class="l">Контракт → отгрузка</div>
+            <div class="v">{{ order.work_days_to_ship }} р.д.</div>
+        </div>
+        {% endif %}
+
+        {% if order.work_days_design is not None %}
+        <div class="od-stat" title="Сколько рабочих дней выделено на проектирование">
+            <div class="l">Проектирование</div>
+            <div class="v">{{ order.work_days_design }} р.д.</div>
+        </div>
+        {% endif %}
+
+        {% if order.work_days_remaining is not None %}
+        <div class="od-stat {% if order.work_days_remaining < 10 %}warn{% else %}ok{% endif %}"
+             title="Сколько рабочих дней осталось до отгрузки (может быть отрицательным)">
+            <div class="l">До отгрузки</div>
+            <div class="v">
+                {% if order.work_days_remaining < 0 %}
+                просрочено {{ order.work_days_remaining|cut:'-' }} р.д.
+                {% else %}
+                {{ order.work_days_remaining }} р.д.
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% for g in branch_groups %}
+<div class="card">
+    <div class="od-branch-head">
+        <h4>
+            <span class="badge">Ветка</span> {{ g.branch.name }}
+            <span class="od-meta">{{ g.done }}/{{ g.total }}</span>
+        </h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <a class="pill" href="{% url 'settings_branch_edit' order.pk g.branch.pk %}">Изменить</a>
+            {% if not g.total %}
+            <form method="post" action="{% url 'settings_branch_delete' order.pk g.branch.pk %}"
+                  style="margin:0" data-confirm="Удалить ветку «{{ g.branch.name }}»?">
+                {% csrf_token %}
+                <button type="submit" class="btn red" style="padding:6px 12px;font-size:13px">Удалить</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if g.tasks %}
+    <table class="od-tbl">
+        <thead>
+        <tr>
+            <th style="width:50px">Этап</th>
+            <th>Задача</th>
+            <th>Статус</th>
+            <th>Исполнитель</th>
+            <th>Срок</th>
+            <th>План, ч</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for t in g.tasks %}
+        <tr>
+            <td>{{ t.stage_order|default:'—' }}</td>
+            <td>
+                <a href="/tasks/task/{{ t.pk }}/" target="_blank">#{{ t.pk }} · {{ t.title|truncatechars:60 }}</a>
+                <div class="od-meta">поставил {{ t.requester.full_name|default:'—' }}</div>
+            </td>
+            <td><span class="od-status {{ t.status }}">{{ t.get_status_display }}</span></td>
+            <td>{{ t.executor.full_name|default:'—' }}</td>
+            <td>
+                {% if t.due %}{{ t.due|date:'d.m.Y' }}{% else %}—{% endif %}
+            </td>
+            <td>{{ t.plan_hours|floatformat:1 }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--muted);font-size:13px;margin:8px 0 0">
+        Задач в этой ветке пока нет.
+    </p>
+    {% endif %}
+</div>
+{% endfor %}
+
+{% if no_branch_tasks %}
+<div class="card">
+    <h3 style="margin:0 0 10px">Задачи без ветки</h3>
+    <table class="od-tbl">
+        <thead><tr><th>Задача</th><th>Статус</th><th>Исполнитель</th><th>Срок</th></tr></thead>
+        <tbody>
+        {% for t in no_branch_tasks %}
+        <tr>
+            <td><a href="/tasks/task/{{ t.pk }}/" target="_blank">#{{ t.pk }} · {{ t.title|truncatechars:60 }}</a></td>
+            <td><span class="od-status {{ t.status }}">{{ t.get_status_display }}</span></td>
+            <td>{{ t.executor.full_name|default:'—' }}</td>
+            <td>{% if t.due %}{{ t.due|date:'d.m.Y' }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if not branch_groups and not no_branch_tasks %}
+<div class="card" style="text-align:center;color:var(--muted)">
+    В заказе пока нет ни одной задачи.
+    <div style="margin-top:10px">
+        <a class="pill" href="{% url 'settings_branch_new' order.pk %}">+ Создать первую ветку</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+    .os-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+    .os-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .os-stat .v{font-size:24px;font-weight:800;margin-top:2px}
+    .os-stat.ok .v{color:var(--green)}
+    .os-stat.warn .v{color:var(--orange)}
+    .os-stat.info .v{color:var(--blue)}
+
+    .os-funnel{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+    .os-step{display:flex;align-items:center;gap:12px;padding:10px 14px;
+             background:var(--soft);border:1px solid var(--line);border-radius:12px;
+             position:relative;overflow:hidden}
+    .os-step .bg{position:absolute;left:0;top:0;bottom:0;
+                 background:color-mix(in srgb,var(--blue) 18%,transparent);z-index:0}
+    .os-step .n,.os-step .t,.os-step .c{position:relative;z-index:1}
+    .os-step .n{width:22px;height:22px;border-radius:999px;background:var(--blue);color:#fff;
+                font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex:none}
+    .os-step .t{flex:1;font-weight:700;font-size:13px}
+    .os-step .c{color:var(--muted);font-size:12px;font-weight:700}
+    .os-step .c b{color:var(--ink)}
+
+    .os-table{width:100%;border-collapse:collapse;font-size:13px}
+    .os-table th,.os-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:top}
+    .os-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .os-table tbody tr:hover{background:var(--soft)}
+    .os-table .num{text-align:right;font-variant-numeric:tabular-nums}
+    .os-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .os-badge.done{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .os-badge.progress{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .os-badge.none{background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+
+    .os-bar{display:flex;align-items:center;gap:6px}
+    .os-bar-wrap{flex:1;height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+    .os-bar-wrap > i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green))}
+</style>
+
+<div class="card">
+    <h3 style="margin:0 0 12px">Обучение: сводка</h3>
+    <div class="os-grid">
+        <div class="os-stat info">
+            <div class="l">Всего активных</div>
+            <div class="v">{{ stats.total }}</div>
+        </div>
+        <div class="os-stat warn">
+            <div class="l">Не начали</div>
+            <div class="v">{{ stats.not_started }}</div>
+        </div>
+        <div class="os-stat info">
+            <div class="l">В процессе</div>
+            <div class="v">{{ stats.in_progress }}</div>
+        </div>
+        <div class="os-stat ok">
+            <div class="l">Завершили</div>
+            <div class="v">{{ stats.done }}</div>
+        </div>
+    </div>
+
+    <h4 style="margin:16px 0 10px;font-size:14px">Воронка по шагам</h4>
+    <div class="os-funnel">
+        {% for step in funnel %}
+        <div class="os-step">
+            <div class="bg" style="width:{{ step.percent }}%"></div>
+            <span class="n">{{ forloop.counter }}</span>
+            <span class="t">{{ step.title }}</span>
+            <span class="c"><b>{{ step.reached }}</b> из {{ stats.total }} · {{ step.percent }}%</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Сотрудники</h3>
+    <table class="os-table">
+        <thead>
+        <tr>
+            <th>Сотрудник</th>
+            <th>Подразделение</th>
+            <th>Прогресс</th>
+            <th>Статус</th>
+            <th>Последний тур</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+            <td>
+                <b>{{ r.user.full_name }}</b>
+                <div style="color:var(--muted);font-size:11px">{{ r.user.email }}</div>
+            </td>
+            <td>{{ r.user.department.name|default:'—' }}</td>
+            <td>
+                <div class="os-bar">
+                    <div class="os-bar-wrap"><i style="width:{{ r.percent }}%"></i></div>
+                    <span style="font-size:11px;color:var(--muted);white-space:nowrap">
+                        {{ r.done_count }}/{{ r.total }}
+                    </span>
+                </div>
+            </td>
+            <td>
+                {% if r.state == 'done' %}
+                <span class="os-badge done">завершил</span>
+                {% elif r.state == 'in_progress' %}
+                <span class="os-badge progress">в процессе</span>
+                {% else %}
+                <span class="os-badge none">не начал</span>
+                {% endif %}
+            </td>
+            <td style="color:var(--muted);font-size:12px">
+                {% if r.last_seen %}
+                {{ r.last_seen|slice:':16'|cut:'T' }}
+                {% else %}—{% endif %}
+            </td>
+            <td style="text-align:right;white-space:nowrap">
+                {% if r.done_count or r.onboarding_done %}
+                <form method="post"
+                      action="{% url 'settings_onboarding_reset' r.user.pk %}"
+                      style="margin:0;display:inline"
+                      data-confirm="Сбросить прогресс обучения для {{ r.user.full_name }}?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn red"
+                            style="padding:4px 10px;font-size:12px">
+                        Сбросить
+                    </button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px 0">
+            Нет активных пользователей.
+        </td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

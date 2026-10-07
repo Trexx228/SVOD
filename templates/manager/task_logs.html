@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' %}
+
+<style>
+    .tl-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .tl-stat{padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+             background:var(--soft);font-size:12px;font-weight:700;
+             text-decoration:none;color:var(--ink)}
+    .tl-stat.on{border-color:var(--blue);background:var(--softblue);color:var(--blue)}
+    .tl-stat .n{color:var(--muted);margin-left:6px}
+
+    .tl-filter{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:10px;
+               align-items:end;margin-bottom:14px}
+    @media(max-width:900px){.tl-filter{grid-template-columns:1fr 1fr 1fr}}
+    .tl-filter label{margin:0 0 4px}
+
+    .tl-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .tl-tbl th,.tl-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .tl-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .tl-tbl tbody tr:hover{background:var(--soft)}
+    .tl-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .tl-tbl a:hover{text-decoration:underline}
+    .tl-meta{color:var(--muted);font-size:11px}
+    .tl-kind{display:inline-block;padding:2px 8px;border-radius:999px;
+             font-size:11px;font-weight:700;
+             background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;
+           margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Логи задач отдела · {{ total }}</h3>
+    </div>
+
+    {% if kind_stats %}
+    <div class="tl-stats">
+        <a class="tl-stat {% if not kind %}on{% endif %}" href="{% url 'manager_task_logs' %}">
+            Все <span class="n">{{ total }}</span>
+        </a>
+        {% for s in kind_stats %}
+        <a class="tl-stat {% if kind == s.code %}on{% endif %}" href="?kind={{ s.code }}">
+            {{ s.label }} <span class="n">{{ s.count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="get" class="tl-filter">
+        <div>
+            <label>Событие</label>
+            <select name="kind">
+                <option value="">— любое —</option>
+                {% for code, label in kind_choices %}
+                <option value="{{ code }}" {% if kind == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Автор</label>
+            <select name="author">
+                <option value="">— любой —</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}" {% if author_pk == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>ID задачи</label>
+            <input name="task" value="{{ task_pk }}" placeholder="42">
+        </div>
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'manager_task_logs' %}">Сброс</a>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="tl-tbl">
+            <thead>
+            <tr>
+                <th style="white-space:nowrap">Когда</th>
+                <th>Автор</th>
+                <th>Событие</th>
+                <th>Задача</th>
+                <th>Комментарий</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for log in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ log.created_at|date:'d.m.Y H:i' }}</td>
+                <td>{{ log.author.full_name|default:'—' }}</td>
+                <td><span class="tl-kind">{{ log.get_kind_display }}</span></td>
+                <td>
+                    {% if log.task %}
+                    <a href="/tasks/task/{{ log.task.pk }}/" target="_blank">
+                        #{{ log.task.pk }} · {{ log.task.title|truncatechars:50 }}
+                    </a>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--muted)">{{ log.comment|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px 0">
+                Записей нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

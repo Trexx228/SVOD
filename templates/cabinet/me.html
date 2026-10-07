@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Мой кабинет</h2>
+{% include 'cabinet/_me_tabs.html' %}
+
+{% if tab == 'overview' %}
+{% include 'cabinet/_tab_overview.html' %}
+{% elif tab == 'tasks' %}
+{% include 'cabinet/_tab_tasks.html' %}
+{% elif tab == 'sessions' %}
+{% include 'cabinet/_tab_sessions.html' %}
+{% elif tab == 'kpi' %}
+{% include 'cabinet/_tab_kpi.html' %}
+{% elif tab == 'motivation' %}
+{% include 'cabinet/_tab_motivation.html' %}
+{% elif tab == 'logs' %}
+{% include 'cabinet/_tab_logs.html' %}
+{% elif tab == 'profile' %}
+{% include 'cabinet/_tab_profile.html' %}
+{% elif tab == 'settings' %}
+{% include 'cabinet/_tab_settings.html' %}
+{% endif %}
+{% endblock %}

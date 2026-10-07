@@ -1,0 +1,483 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Сверхурочные" %}
+
+<style>
+    .ot-toolbar{
+        display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+        margin-bottom:14px;
+    }
+    .ot-tiles{
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+        gap:10px;margin-bottom:18px;
+    }
+    .ot-tile{
+        background:var(--soft);border:1px solid var(--line);
+        border-radius:12px;padding:12px 14px;
+    }
+    .ot-tile .l{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .ot-tile .v{font-size:24px;font-weight:800;margin-top:2px}
+    .ot-tile .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .ot-tile.info .v{color:var(--blue)}
+    .ot-tile.warn .v{color:var(--orange)}
+
+    .ot-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .ot-tbl th,.ot-tbl td{
+        padding:9px 12px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:middle;
+    }
+    .ot-tbl th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .ot-tbl tbody tr:hover{background:var(--soft)}
+    .ot-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ot-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+    .ot-tbl .expand{cursor:pointer;color:var(--muted);width:24px;text-align:center}
+
+    .ot-sub{background:var(--soft)}
+    .ot-sub-inner{padding:8px 18px 14px;font-size:12px}
+    .ot-rec{
+        display:grid;grid-template-columns:110px 70px 1fr 90px 40px;
+        gap:10px;align-items:center;padding:6px 0;
+        border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent);
+    }
+    .ot-rec:last-child{border-bottom:0}
+    .ot-rec .date{font-weight:700}
+    .ot-rec .hours{font-weight:800;color:var(--blue)}
+    .ot-rec .task a{color:var(--ink);text-decoration:none}
+    .ot-rec .task a:hover{color:var(--blue)}
+    .ot-rec .empty{color:var(--muted)}
+    .ot-rec .scan{
+        display:inline-flex;align-items:center;justify-content:center;
+        width:28px;height:28px;border-radius:8px;
+        background:var(--card);border:1px solid var(--line);
+        text-decoration:none;color:var(--muted);
+    }
+    .ot-rec .scan:hover{color:var(--blue);border-color:var(--blue)}
+
+    .ot-modal{
+        position:fixed;inset:0;z-index:200;
+        background:rgba(0,0,0,.65);
+        display:flex;align-items:center;justify-content:center;padding:24px;
+    }
+    .ot-modal[hidden]{display:none}
+    .ot-modal-card{
+        background:var(--card);border:1px solid var(--line);
+        border-radius:18px;padding:24px 28px;
+        max-width:520px;width:100%;
+        box-shadow:0 24px 64px rgba(0,0,0,.5);
+    }
+    .ot-modal-card h3{margin:0 0 14px;font-size:18px}
+    .ot-modal-card .row{
+        display:grid;grid-template-columns:1fr 1fr;gap:10px;
+    }
+    @media(max-width:520px){.ot-modal-card .row{grid-template-columns:1fr}}
+</style>
+
+{# ── Тулбар: месяц + фильтр по сотруднику ── #}
+<div class="ot-toolbar">
+    <a class="pill" href="?month={{ prev.y }}-{{ prev.m|stringformat:'02d' }}{% if filter_user_id %}&user={{ filter_user_id }}{% endif %}">← {{ prev.m|stringformat:'02d' }}</a>
+    <h3 style="margin:0;font-size:16px;min-width:160px;text-align:center">{{ month_label }}</h3>
+    <a class="pill" href="?month={{ next.y }}-{{ next.m|stringformat:'02d' }}{% if filter_user_id %}&user={{ filter_user_id }}{% endif %}">{{ next.m|stringformat:'02d' }} →</a>
+    <a class="pill" href="?">Текущий месяц</a>
+
+    <form method="get" style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <input type="hidden" name="month" value="{{ y }}-{{ m|stringformat:'02d' }}">
+        <label style="margin:0;font-size:13px;color:var(--muted)">Сотрудник:</label>
+        <select name="user" onchange="this.form.submit()"
+                style="min-width:200px;padding:6px 10px;font-size:13px">
+            <option value="">— весь отдел —</option>
+            {% for mem in members %}
+            <option value="{{ mem.pk }}" {% if filter_user_id == mem.pk %}selected{% endif %}>
+                {{ mem.full_name }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <a class="btn gray"
+       href="{% url 'manager_overtime_csv' %}?month={{ y }}-{{ m|stringformat:'02d' }}{% if filter_user_id %}&user={{ filter_user_id }}{% endif %}"
+       title="Скачать CSV за выбранный месяц">⬇ CSV</a>
+</div>
+
+{# ── Плитки ── #}
+<div class="ot-tiles">
+    <div class="ot-tile info">
+        <div class="l">Часов за месяц</div>
+        <div class="v">{{ totals.hours|floatformat:1 }}</div>
+    </div>
+    <div class="ot-tile">
+        <div class="l">Записей</div>
+        <div class="v">{{ totals.records }}</div>
+    </div>
+    <div class="ot-tile">
+        <div class="l">Сотрудников</div>
+        <div class="v">{{ totals.people }} / {{ totals.members }}</div>
+        <div class="h">с переработкой</div>
+    </div>
+</div>
+
+{# ── Таблица по сотрудникам ── #}
+<div class="card" style="padding:0">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--line);
+                display:flex;justify-content:space-between;align-items:center;
+                gap:10px;flex-wrap:wrap">
+        <b>Сотрудники отдела</b>
+        <button type="button" class="btn green" data-ot-open>
+            + Сверхурочная
+        </button>
+    </div>
+
+    <div style="overflow-x:auto">
+        <table class="ot-tbl">
+            <thead>
+            <tr>
+                <th style="width:24px"></th>
+                <th>Сотрудник</th>
+                <th class="num">Записей</th>
+                <th class="num">Часов</th>
+                <th class="num">Последняя</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr class="ot-row" data-user-id="{{ r.user.pk }}">
+                <td class="expand" data-toggle="{{ r.user.pk }}">
+                    {% if r.records %}▸{% else %}·{% endif %}
+                </td>
+                <td>
+                    <b>{{ r.user.full_name }}</b>
+                    {% if r.user.department %}
+                    <div style="color:var(--muted);font-size:11px">{{ r.user.department.name }}</div>
+                    {% endif %}
+                </td>
+                <td class="num">{{ r.count }}</td>
+                <td class="num">
+                    {% if r.total_hours %}
+                    <b style="color:var(--blue)">{{ r.total_hours|floatformat:1 }}</b>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="num" style="color:var(--muted)">
+                    {% if r.last_date %}{{ r.last_date|date:'d.m.Y' }}{% else %}—{% endif %}
+                </td>
+            </tr>
+            {% if r.records %}
+            <tr class="ot-sub" data-sub-for="{{ r.user.pk }}" hidden>
+                <td></td>
+                <td colspan="4">
+                    <div class="ot-sub-inner">
+                        {% for rec in r.records %}
+                        <div class="ot-rec">
+                            <span class="date">{{ rec.date|date:'d.m.Y' }}</span>
+                            <span class="hours">{{ rec.hours|floatformat:1 }} ч</span>
+                            <span class="task">
+                                {% if rec.task %}
+                                <a href="{% url 'task_detail' rec.task.pk %}">
+                                    #{{ rec.task.pk }} · {{ rec.task.title|truncatechars:50 }}
+                                </a>
+                                {% else %}
+                                <span class="empty">без задачи</span>
+                                {% endif %}
+                                {% if rec.reason %}
+                                <div style="color:var(--muted);font-size:11px;margin-top:2px">
+                                    {{ rec.reason }}
+                                </div>
+                                {% endif %}
+                            </span>
+                            <span style="color:var(--muted);font-size:11px;text-align:right">
+                                {{ rec.created_by.full_name|default:'—' }}
+                            </span>
+                            <span style="display:flex;gap:4px;justify-content:flex-end">
+                                {% if rec.order_file %}
+                                <a class="scan" href="{{ rec.order_file.url }}"
+                                   target="_blank" title="Приказ">📎</a>
+                                {% endif %}
+
+                                <button type="button"
+                                        class="ot-edit-btn"
+                                        data-rec-pk="{{ rec.pk }}"
+                                        data-rec-date="{{ rec.date|date:'Y-m-d' }}"
+                                        data-rec-hours="{{ rec.hours|floatformat:'-2' }}"
+                                        data-rec-reason="{{ rec.reason|default:'' }}"
+                                        data-rec-task="{{ rec.task_id|default:'' }}"
+                                        data-rec-user="{{ rec.user.full_name }}"
+                                        data-rec-task-title="{% if rec.task %}#{{ rec.task.pk }} · {{ rec.task.title|truncatechars:60 }}{% endif %}"
+                                        title="Изменить"
+                                        style="border:0;background:none;color:var(--muted);
+                                               cursor:pointer;font:inherit;padding:0 4px">✎</button>
+
+                                <form method="post"
+                                      action="{% url 'manager_overtime_delete' rec.pk %}"
+                                      style="display:inline;margin:0"
+                                      data-confirm="Удалить запись?">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="month"
+                                           value="{{ y }}-{{ m|stringformat:'02d' }}">
+                                    {% if filter_user_id %}
+                                    <input type="hidden" name="scope_user"
+                                           value="{{ filter_user_id }}">
+                                    {% endif %}
+                                    <button type="submit"
+                                            style="border:0;background:none;color:var(--muted);
+                                                   cursor:pointer;font:inherit;padding:0 4px"
+                                            title="Удалить">🗑</button>
+                                </form>
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align:center;color:var(--muted);padding:24px 0">
+                    В вашем отделе нет активных сотрудников.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Модал создания ── #}
+<div id="ot-modal" class="ot-modal" hidden>
+    <div class="ot-modal-card">
+        <h3>Новая сверхурочная</h3>
+
+        <form method="post" action="{% url 'manager_overtime_create' %}"
+              enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ y }}-{{ m|stringformat:'02d' }}">
+            {% if filter_user_id %}
+            <input type="hidden" name="scope_user" value="{{ filter_user_id }}">
+            {% endif %}
+
+            <label>Сотрудник</label>
+            <select name="user" required>
+                <option value="">— выберите —</option>
+                {% for mem in members %}
+                <option value="{{ mem.pk }}">{{ mem.full_name }}</option>
+                {% endfor %}
+            </select>
+
+            <div class="row" style="margin-top:10px">
+                <div>
+                    <label>Дата</label>
+                    <input type="date" name="date" required
+                           value="{{ today|date:'Y-m-d' }}">
+                </div>
+                <div>
+                    <label>Часы</label>
+                    <input type="text" name="hours" required
+                           inputmode="decimal" placeholder="2.5">
+                </div>
+            </div>
+
+            <label>Задача (опционально)</label>
+            <select name="task">
+                <option value="none">— без задачи —</option>
+                {% for r in rows %}
+                {% for t in r.open_tasks %}
+                <option value="{{ t.pk }}" data-user="{{ r.user.pk }}">
+                    {{ r.user.full_name }} · #{{ t.pk }} · {{ t.title|truncatechars:50 }}
+                </option>
+                {% endfor %}
+                {% endfor %}
+            </select>
+
+            <label>Причина</label>
+            <input type="text" name="reason" maxlength="500"
+                   placeholder="Например: ремонт станка">
+
+            <label>Приказ (опционально)</label>
+            <input type="file" name="order_file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+
+            <div style="display:flex;gap:10px;margin-top:20px">
+                <button type="submit" class="btn green" style="flex:1">Сохранить</button>
+                <button type="button" class="btn gray" id="ot-cancel" style="flex:1">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ══════════ Модал «Изменить сверхурочную» ══════════ #}
+<div id="ot-edit-modal" class="ot-modal" hidden>
+    <div class="ot-modal-card">
+        <h3>Изменить запись</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+            Сотрудник: <b id="ot-edit-user">—</b>
+        </p>
+
+        <form method="post" id="ot-edit-form" action=""
+              enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="month" value="{{ y }}-{{ m|stringformat:'02d' }}">
+            {% if filter_user_id %}
+            <input type="hidden" name="scope_user" value="{{ filter_user_id }}">
+            {% endif %}
+
+            <div class="ot-row">
+                <div>
+                    <label>Дата</label>
+                    <input type="date" name="date" id="ot-edit-date" required>
+                </div>
+                <div>
+                    <label>Часы</label>
+                    <input type="text" name="hours" id="ot-edit-hours"
+                           required inputmode="decimal">
+                </div>
+            </div>
+
+            <label>Задача (опционально)</label>
+            <select name="task" id="ot-edit-task">
+                <option value="none">— без задачи —</option>
+                {# Заполняется JS: задачи того же сотрудника из data-rec-task #}
+            </select>
+            <p id="ot-edit-task-hint" style="color:var(--muted);font-size:12px;margin:4px 0 0"></p>
+
+            <label>Причина</label>
+            <input type="text" name="reason" id="ot-edit-reason" maxlength="500">
+
+            <label>Новый приказ (опционально)</label>
+            <input type="file" name="order_file"
+                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+            <p style="color:var(--muted);font-size:12px;margin:4px 0 0">
+                Оставьте пустым — старый файл сохранится.
+            </p>
+
+            <div style="display:flex;gap:10px;margin-top:20px">
+                <button type="submit" class="btn green" style="flex:1">Сохранить</button>
+                <button type="button" class="btn gray" id="ot-edit-cancel" style="flex:1">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ── Раскрытие/сворачивание записей по сотрудникам ──
+        document.querySelectorAll('[data-toggle]').forEach(function(el){
+            el.addEventListener('click', function(){
+                var uid = el.dataset.toggle;
+                var sub = document.querySelector('[data-sub-for="' + uid + '"]');
+                if (!sub) return;
+                sub.hidden = !sub.hidden;
+                el.textContent = sub.hidden ? '▸' : '▾';
+            });
+        });
+
+        // ── Модал создания ──
+        var createModal = document.getElementById('ot-modal');
+        var openBtn = document.querySelector('[data-ot-open]');
+        var createCancel = document.getElementById('ot-cancel');
+        if (openBtn && createModal){
+            openBtn.addEventListener('click', function(){ createModal.hidden = false; });
+        }
+        if (createCancel && createModal){
+            createCancel.addEventListener('click', function(){ createModal.hidden = true; });
+        }
+        if (createModal){
+            createModal.addEventListener('click', function(e){
+                if (e.target === createModal) createModal.hidden = true;
+            });
+        }
+
+        // ── Модал редактирования ──
+        var editModal = document.getElementById('ot-edit-modal');
+        var editForm  = document.getElementById('ot-edit-form');
+        var editUser  = document.getElementById('ot-edit-user');
+        var editDate  = document.getElementById('ot-edit-date');
+        var editHours = document.getElementById('ot-edit-hours');
+        var editTask  = document.getElementById('ot-edit-task');
+        var editTaskHint = document.getElementById('ot-edit-task-hint');
+        var editReason = document.getElementById('ot-edit-reason');
+        var editCancel = document.getElementById('ot-edit-cancel');
+
+        // Задачи по сотрудникам — строим карту из data-* на option-ах
+        // в модале создания (там все задачи уже отрендерены).
+        var tasksByUser = {};
+        var createTaskSelect = document.querySelector('#ot-modal select[name="task"]');
+        if (createTaskSelect){
+            createTaskSelect.querySelectorAll('option[data-user]').forEach(function(opt){
+                var uid = opt.dataset.user;
+                if (!tasksByUser[uid]) tasksByUser[uid] = [];
+                tasksByUser[uid].push({ pk: opt.value, label: opt.textContent.trim() });
+            });
+        }
+
+        // Все кнопки ✎ в таблице
+        document.querySelectorAll('.ot-edit-btn').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                var pk = btn.dataset.recPk;
+                var dateVal = btn.dataset.recDate || '';
+                var hoursVal = btn.dataset.recHours || '';
+                var reasonVal = btn.dataset.recReason || '';
+                var taskId = btn.dataset.recTask || '';
+                var userLabel = btn.dataset.recUser || '—';
+                var taskTitle = btn.dataset.recTaskTitle || '';
+
+                // Заполняем модал
+                editForm.action = '/manager/overtime/' + pk + '/edit/';
+                editUser.textContent = userLabel;
+                editDate.value = dateVal;
+                editHours.value = hoursVal;
+                editReason.value = reasonVal;
+
+                // Задачи: заполняем из карты tasksByUser по выбранному user
+                var userId = null;
+                // Находим user по кнопке: он есть в родительской строке как data-user-id
+                var row = btn.closest('.ot-sub');
+                if (row){
+                    // Строка-заголовок над sub-row имеет data-user-id
+                    var mainRow = document.querySelector('.ot-row[data-user-id][data-sub-for-active]');
+                    // Проще: пробегаем по всем .ot-row и ищем тот, у которого
+                    // следующий sibling == row.
+                }
+                // Ещё проще: у кнопки нет user_id, но task-title и user-label
+                // достаточны для отображения. Селект задач оставляем как есть:
+                // "— без задачи —" и, если у записи была задача, показываем её
+                // отдельным <option> (создаём динамически).
+                editTask.innerHTML = '<option value="none">— без задачи —</option>';
+
+                if (taskId && taskId !== 'None' && taskId !== '') {
+                    var opt = document.createElement('option');
+                    opt.value = taskId;
+                    opt.textContent = taskTitle || ('#' + taskId);
+                    opt.selected = true;
+                    editTask.appendChild(opt);
+                    editTaskHint.textContent = 'Текущая задача: ' + (taskTitle || ('#' + taskId));
+                } else {
+                    editTaskHint.textContent = 'Задача не привязана.';
+                }
+
+                editModal.hidden = false;
+            });
+        });
+
+        if (editCancel && editModal){
+            editCancel.addEventListener('click', function(){ editModal.hidden = true; });
+        }
+        if (editModal){
+            editModal.addEventListener('click', function(e){
+                if (e.target === editModal) editModal.hidden = true;
+            });
+            document.addEventListener('keydown', function(e){
+                if (e.key === 'Escape' && !editModal.hidden) editModal.hidden = true;
+            });
+        }
+
+        // Закрыть модал создания по Esc
+        document.addEventListener('keydown', function(e){
+            if (e.key === 'Escape' && createModal && !createModal.hidden){
+                createModal.hidden = true;
+            }
+        });
+    })();
+</script>
+{% endblock %}

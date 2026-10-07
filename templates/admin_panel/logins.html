@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .log-table{width:100%;border-collapse:collapse;font-size:13px}
+    .log-table th,.log-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                                text-align:left;vertical-align:top}
+    .log-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                  letter-spacing:.4px;font-weight:700}
+    .log-table tbody tr:hover{background:var(--soft)}
+    .log-state{display:inline-block;padding:2px 10px;border-radius:999px;
+               font-size:11px;font-weight:700}
+    .log-state.ok{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .log-state.fail{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+    .log-ua{color:var(--muted);font-size:11px;max-width:320px;word-break:break-all}
+    .log-filter{display:grid;grid-template-columns:2fr 1fr auto;gap:10px;
+                align-items:end;margin-bottom:14px}
+    @media(max-width:640px){.log-filter{grid-template-columns:1fr}}
+    .log-filter label{margin:0 0 4px}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Журнал входов · {{ total }}</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="pill" style="color:var(--green)">Успешных: {{ ok_count }}</span>
+            <span class="pill" style="color:var(--red)">Отказов: {{ failed_count }}</span>
+        </div>
+    </div>
+
+    <form method="get" class="log-filter">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="ФИО, email или IP">
+        </div>
+        <div>
+            <label>Результат</label>
+            <select name="result">
+                <option value="">— любые —</option>
+                <option value="ok" {% if result == 'ok' %}selected{% endif %}>Только успешные</option>
+                <option value="failed" {% if result == 'failed' %}selected{% endif %}>Только отказы</option>
+            </select>
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_logins' %}">Сброс</a>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="log-table">
+            <thead>
+            <tr>
+                <th style="white-space:nowrap">Когда</th>
+                <th>Пользователь</th>
+                <th>Результат</th>
+                <th>IP</th>
+                <th>User-Agent</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ row.created_at|date:'d.m.Y H:i:s' }}</td>
+                <td>
+                    {% if row.user %}
+                    <b>{{ row.user.full_name }}</b><br>
+                    <span style="color:var(--muted);font-size:12px">{{ row.user.email }}</span>
+                    {% else %}
+                    <span style="color:var(--muted)">—</span><br>
+                    <span style="font-size:12px">попытка: <b>{{ row.email_attempted|default:'—' }}</b></span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.success %}
+                    <span class="log-state ok">успешно</span>
+                    {% else %}
+                    <span class="log-state fail">отказ</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--muted)">{{ row.ip|default:'—' }}</td>
+                <td class="log-ua">{{ row.user_agent|truncatechars:120|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px 0">
+                Записей нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

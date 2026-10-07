@@ -1,0 +1,342 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .user-filter{display:grid;grid-template-columns:2fr 1fr 1fr auto auto;gap:10px;
+                 align-items:end;margin-bottom:14px}
+    @media(max-width:800px){.user-filter{grid-template-columns:1fr 1fr}}
+    .user-filter label{margin:0 0 4px}
+
+    .u-table{width:100%;border-collapse:collapse}
+    .u-table th,.u-table td{padding:10px 12px;border-bottom:1px solid var(--line);
+                            text-align:left;vertical-align:middle}
+    .u-table th{color:var(--muted);font-size:12px;text-transform:uppercase;
+                letter-spacing:.4px;font-weight:700}
+    .u-table tbody tr:hover{background:var(--soft)}
+    .u-ava{display:inline-flex;width:32px;height:32px;border-radius:999px;
+           background:linear-gradient(135deg,var(--blue),var(--green));
+           color:#fff;font-weight:800;font-size:13px;align-items:center;
+           justify-content:center;margin-right:8px;vertical-align:middle}
+    .u-state{display:inline-block;padding:2px 10px;border-radius:999px;
+             font-size:11px;font-weight:700}
+    .u-state.on{background:color-mix(in srgb,var(--green) 18%,transparent);
+                color:var(--green)}
+    .u-state.off{background:color-mix(in srgb,var(--gray) 22%,transparent);
+                 color:var(--muted)}
+
+    .bulk-bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;
+              padding:10px 12px;border:1px dashed var(--input);border-radius:12px;
+              margin-bottom:12px;background:var(--soft)}
+    .bulk-bar label{margin:0 0 4px}
+    .bulk-bar .field{min-width:180px}
+    .bulk-bar .hidden{display:none}
+    .u-check{width:18px;height:18px;margin:0;cursor:pointer}
+
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Пользователи · {{ total }}</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn gray"
+               href="{% url 'settings_users_export' %}{% if page_qs %}?{{ page_qs }}{% endif %}"
+               title="Экспорт текущего фильтра в CSV">Экспорт CSV</a>
+            <a class="btn gray" href="{% url 'settings_users_import' %}">Импорт CSV</a>
+            <a class="btn green" href="{% url 'settings_user_new' %}">+ Новый пользователь</a>
+        </div>
+    </div>
+
+    <form method="get" class="user-filter">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="ФИО или email">
+        </div>
+        <div>
+            <label>Подразделение</label>
+            <select name="dept">
+                <option value="">— все —</option>
+                {% for d in departments %}
+                <option value="{{ d.pk }}" {% if dept_pk == d.pk|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Роль</label>
+            <select name="role">
+                <option value="">— все —</option>
+                {% for r in roles %}
+                <option value="{{ r.pk }}" {% if role_pk == r.pk|stringformat:'s' %}selected{% endif %}>{{ r.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Статус</label>
+            <select name="active">
+                <option value="">— любой —</option>
+                <option value="1" {% if active_filter == '1' %}selected{% endif %}>Активные</option>
+                <option value="0" {% if active_filter == '0' %}selected{% endif %}>Отключённые</option>
+            </select>
+        </div>
+        <div>
+            <label>Занятость</label>
+            <select name="status">
+                <option value="">— работающие —</option>
+                <option value="vacation" {% if status_filter == 'vacation' %}selected{% endif %}>В отпуске</option>
+                <option value="dismissed" {% if status_filter == 'dismissed' %}selected{% endif %}>Уволенные</option>
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Все</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn blue">Показать</button>
+        </div>
+    </form>
+
+    <form method="post" action="{% url 'settings_users_bulk' %}" id="bulk-form">
+        {% csrf_token %}
+
+        <div class="bulk-bar">
+            <div style="min-width:120px">
+                <div style="font-weight:700">Выбрано: <span id="bulk-count">0</span></div>
+            </div>
+
+            <div class="field">
+                <label>Действие</label>
+                <select name="bulk_action" id="bulk-action">
+                    <option value="">— выберите —</option>
+                    <option value="activate">Активировать</option>
+                    <option value="dismiss">Уволить</option>
+                    <option value="set_role">Назначить роль</option>
+                    <option value="set_department">Назначить подразделение</option>
+                </select>
+            </div>
+
+            <div class="field hidden" id="bulk-role-wrap">
+                <label>Роль</label>
+                <select name="bulk_role">
+                    <option value="none">Пользователь (базовая)</option>
+                    {% for r in roles %}
+                    <option value="{{ r.pk }}">{{ r.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field hidden" id="bulk-dept-wrap">
+                <label>Подразделение</label>
+                <select name="bulk_department">
+                    <option value="none">— сбросить —</option>
+                    {% for d in departments %}
+                    <option value="{{ d.pk }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <button type="button" class="btn blue" id="bulk-apply-btn">Применить</button>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto">
+            <table class="u-table">
+                <thead>
+                <tr>
+                    <th style="width:36px"><input type="checkbox" class="u-check" id="check-all"></th>
+                    <th>Сотрудник</th>
+                    <th>Подразделение</th>
+                    <th>Роль</th>
+                    <th>Статус</th>
+                    <th style="text-align:right">Действия</th>
+                </tr>
+                <div>
+                    <label>Занятость</label>
+                    <select name="status">
+                        <option value="">— работающие —</option>
+                        <option value="dismissed" {% if status_filter == 'dismissed' %}selected{% endif %}>Уволенные</option>
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Все</option>
+                    </select>
+                </div>
+                </thead>
+                <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <input type="checkbox" name="ids" value="{{ u.pk }}"
+                               class="u-check row-check">
+                    </td>
+                    <td>
+                        <span class="u-ava">{{ u.full_name|slice:':1'|upper }}</span>
+                        <b>{{ u.full_name }}</b><br>
+                        <span style="color:var(--muted);font-size:12px">{{ u.email }}</span>
+                    </td>
+                    <td>{{ u.department.name|default:'—' }}</td>
+                    <td>{{ u.role.name|default:'—' }}</td>
+                    <td>
+                        {% if u.is_active %}
+                        <span class="u-state on">активен</span>
+                        {% else %}
+                        <span class="u-state off">отключён</span>
+                        {% endif %}
+                        {% if u.is_on_vacation %}
+                        <span class="u-state" style="background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange);margin-left:4px"
+                              title="{{ u.vacation_label|default:'в отпуске' }}">🌴 отпуск</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;white-space:nowrap">
+                        <a class="btn blue" href="{% url 'settings_user_edit' u.pk %}"
+                           style="padding:6px 12px;font-size:13px">Изменить</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center;color:var(--muted);padding:30px 0">
+                        Никого не найдено по текущим фильтрам.
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ═══ МОДАЛ ПОДТВЕРЖДЕНИЯ BULK ═══ #}
+<div id="bulk-modal" style="display:none;position:fixed;inset:0;z-index:200;
+     background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;
+              padding:26px 30px;border:1px solid var(--line)">
+        <h3 style="margin:0 0 12px" id="bulk-modal-title">Подтвердите действие</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 16px" id="bulk-modal-text">
+            Действие будет применено к выбранным пользователям.
+        </p>
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button type="button" class="btn green" id="bulk-confirm"
+                    style="flex:1">Подтвердить</button>
+            <button type="button" class="btn gray" id="bulk-cancel"
+                    style="flex:1">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+      var all = document.getElementById('check-all');
+      var rows = Array.from(document.querySelectorAll('.row-check'));
+      var cnt = document.getElementById('bulk-count');
+      var action = document.getElementById('bulk-action');
+      var roleWrap = document.getElementById('bulk-role-wrap');
+      var deptWrap = document.getElementById('bulk-dept-wrap');
+
+      var bulkForm = document.getElementById('bulk-form');
+      var bulkBtn = document.getElementById('bulk-apply-btn');
+      var bulkModal = document.getElementById('bulk-modal');
+      var bulkConfirm = document.getElementById('bulk-confirm');
+      var bulkCancel = document.getElementById('bulk-cancel');
+      var bulkTitle = document.getElementById('bulk-modal-title');
+      var bulkText = document.getElementById('bulk-modal-text');
+
+      var actionTexts = {
+        'activate':        'Активировать выбранных пользователей?',
+        'dismiss':         'Уволить выбранных пользователей? Они потеряют доступ к системе. Открытые задачи останутся — их нужно будет переназначить.',
+        'set_role':        'Назначить роль выбранным пользователям?',
+        'set_department':  'Назначить подразделение выбранным пользователям?'
+      };
+
+      function refresh(){
+        var n = rows.filter(function(r){ return r.checked; }).length;
+        if (cnt) cnt.textContent = n;
+        if (all) all.checked = rows.length > 0 && n === rows.length;
+      }
+
+      if (all){
+        all.addEventListener('change', function(){
+          rows.forEach(function(r){ r.checked = all.checked; });
+          refresh();
+        });
+      }
+      rows.forEach(function(r){ r.addEventListener('change', refresh); });
+
+      if (action){
+        action.addEventListener('change', function(){
+          if (roleWrap) roleWrap.classList.toggle('hidden', action.value !== 'set_role');
+          if (deptWrap) deptWrap.classList.toggle('hidden', action.value !== 'set_department');
+        });
+      }
+
+      if (bulkBtn && bulkModal){
+        bulkBtn.addEventListener('click', function(){
+          var n = rows.filter(function(r){ return r.checked; }).length;
+          if (n === 0){
+            bulkTitle.textContent = 'Никого не выбрано';
+            bulkText.textContent = 'Отметьте чекбоксами хотя бы одного пользователя.';
+            bulkConfirm.style.display = 'none';
+          } else {
+            var act = action.value;
+            if (!act){
+              bulkTitle.textContent = 'Действие не выбрано';
+              bulkText.textContent = 'Выберите, что сделать с выбранными пользователями.';
+              bulkConfirm.style.display = 'none';
+            } else {
+              bulkTitle.textContent = 'Выбрано: ' + n;
+              bulkText.textContent = actionTexts[act] || 'Применить действие к выбранным пользователям?';
+              bulkConfirm.style.display = 'block';
+            }
+          }
+          bulkModal.style.display = 'flex';
+        });
+
+        bulkCancel.addEventListener('click', function(){
+          bulkModal.style.display = 'none';
+        });
+
+        bulkConfirm.addEventListener('click', function(){
+          bulkForm.submit();
+        });
+
+        bulkModal.addEventListener('click', function(e){
+          if (e.target === bulkModal) bulkModal.style.display = 'none';
+        });
+
+        document.addEventListener('keydown', function(e){
+          if (e.key === 'Escape' && bulkModal.style.display === 'flex'){
+            bulkModal.style.display = 'none';
+          }
+        });
+      }
+
+      refresh();
+    })();
+          }
+          rows.forEach(r => r.addEventListener('change', refresh));
+
+          action.addEventListener('change', () => {
+            roleWrap.classList.toggle('hidden', action.value !== 'set_role');
+            deptWrap.classList.toggle('hidden', action.value !== 'set_department');
+          });
+
+          document.getElementById('bulk-form').addEventListener('submit', e => {
+            if (!rows.some(r => r.checked)){
+              e.preventDefault();
+              alert('Никого не выбрано.');
+            }
+          });
+
+          refresh();
+        })();
+</script>
+{% endblock %}

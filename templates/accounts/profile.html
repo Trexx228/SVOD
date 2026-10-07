@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card" style="max-width:520px">
+    <h2>Мой профиль</h2>
+
+    <form method="post" action="{% url 'profile_save' %}">
+        {% csrf_token %}
+
+        <label for="full_name">ФИО</label>
+        <input type="text" id="full_name" name="full_name"
+               value="{{ me.full_name }}" required maxlength="150">
+
+        <label>Почта (изменяет администратор)</label>
+        <input type="email" value="{{ me.email }}" disabled>
+
+        <label>Роль</label>
+        <input type="text" value="{{ me.role.name|default:'—' }}" disabled>
+
+        <label>Подразделение</label>
+        <input type="text" value="{{ me.department.name|default:'—' }}" disabled>
+
+        <p style="margin-top:16px">
+            <button class="btn blue" type="submit">Сохранить</button>
+            <a class="btn gray" style="padding:8px 16px;margin-left:6px"
+               href="{% url 'password_change' %}">Сменить пароль</a>
+        </p>
+    </form>
+</div>
+{% endblock %}

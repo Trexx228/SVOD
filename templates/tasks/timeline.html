@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Хронология задач" %}
+
+{% include 'tasks/_registry_tabs.html' %}
+
+<h3 style="margin:0 0 12px;font-size:18px">{{ period_label }}</h3>
+
+<div class="pills" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:.8rem;color:var(--muted)">
+    <span class="tl-leg"><i class="tl-sample work"></i>в работе</span>
+    <span class="tl-leg"><i class="tl-sample hot"></i>высокий приоритет</span>
+    <span class="tl-leg"><i class="tl-sample late"></i>просрочка</span>
+    <span class="tl-leg"><i class="tl-sample done"></i>закрыта</span>
+    <span class="tl-leg"><i class="tl-sample cancel"></i>отменена</span>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;
+            gap:12px;flex-wrap:wrap;margin-bottom:12px">
+    <h3 style="margin:0;font-size:18px">{{ period_label }}</h3>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <span style="color:var(--muted);font-size:13px">Источник:</span>
+    <a href="?view=timeline&y={{ y }}&m={{ m }}&period={{ period }}&closed={{ closed_q }}&source=live"
+       class="pill {% if source == 'live' %}on{% endif %}">Живые данные</a>
+    <a href="?view=timeline&y={{ y }}&m={{ m }}&period={{ period }}&closed={{ closed_q }}&source=snapshot"
+       class="pill {% if source == 'snapshot' %}on{% endif %}">История (снимки)</a>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <a href="?view=timeline&y={{ prev.y }}&m={{ prev.m }}&period={{ period }}&closed={{ closed_q }}&source={{ source }}" class="btn gray">← Предыдущий</a>
+    <a href="?view=timeline&y={{ next.y }}&m={{ next.m }}&period={{ period }}&closed={{ closed_q }}&source={{ source }}" class="btn gray">Следующий →</a>
+    {% if show_closed %}
+    <a href="?view=timeline&y={{ y }}&m={{ m }}&period={{ period }}&closed=0&source={{ source }}" class="btn blue">Показать открытые</a>
+    {% else %}
+    <a href="?view=timeline&y={{ y }}&m={{ m }}&period={{ period }}&closed=1&source={{ source }}" class="btn blue">Показать закрытые</a>
+    {% endif %}
+    <a href="?view=timeline&y={{ y }}&m={{ m }}&period=month&closed={{ closed_q }}&source={{ source }}"   class="pill {% if period == 'month' %}on{% endif %}">Месяц</a>
+    <a href="?view=timeline&y={{ y }}&m={{ m }}&period=quarter&closed={{ closed_q }}&source={{ source }}" class="pill {% if period == 'quarter' %}on{% endif %}">Квартал</a>
+    <a href="?view=timeline&y={{ y }}&m=1&period=year&closed={{ closed_q }}&source={{ source }}"          class="pill {% if period == 'year' %}on{% endif %}">Год</a>
+    <button type="button" onclick="window.print()" class="btn gray">🖨️ Печать / PDF</button>
+    <a href="{% url 'timeline_export' %}?y={{ y }}&m={{ m }}&period={{ period }}&closed={{ closed_q }}&source={{ source }}" class="btn blue">⬇️ Скачать (CSV)</a>
+</div>
+
+<div class="card" style="padding:0">
+    <table style="width:100%">
+        <thead>
+        <tr>
+            <th class="tl-name">Задача</th>
+            <th>
+                <div class="tl-days">
+                    {% for c in cols %}
+                    <span class="tl-day {% if c.weekend %}we{% endif %} {% if c.today %}td{% endif %}">{{ c.label }}</span>
+                    {% endfor %}
+                </div>
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+            <td class="tl-name">
+                <a href="{% url 'task_detail' r.task.pk %}">{{ r.task.title }}</a>
+                <br>
+                <small style="color:var(--muted)">{{ r.task.executor.full_name }} · {{ r.task.get_priority_display }}</small>
+            </td>
+            <td>
+                <div class="tl-track">
+                    {% if r.source == 'snapshot' %}
+                    <div class="tl-bar {{ r.cls }}" style="{{ r.bar_style }}"
+                         title="{{ r.task.title }}: {{ r.snap.start_date|date:'d.m.Y' }} → {{ r.snap.due_date|date:'d.m.Y'|default:'—' }}{% if r.snap.due_before %} (было: {{ r.snap.due_before|date:'d.m.Y' }}){% endif %} · часов за день: {{ r.snap.hours_today|floatformat:1 }}"></div>
+                    {% else %}
+                    <div class="tl-bar {{ r.cls }}" style="{{ r.bar_style }}"
+                         title="{{ r.task.title }}: {{ r.task.start_due|date:'d.m.Y'|default:'—' }} → {{ r.task.due|date:'d.m.Y'|default:'—' }}"></div>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2" style="text-align:center;color:var(--muted);padding:24px 0">
+                {% if show_closed %}Закрытых задач за период нет.{% else %}Открытых задач за период нет.{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .tl-table th, .tl-table td { vertical-align: middle; }
+    .tl-name { min-width: 260px; max-width: 340px; }
+    .tl-days { display: flex; }
+    .tl-day { flex: 1 1 0; text-align: center; font-size: .72rem; color: var(--muted); }
+    .tl-day.we { color: var(--red); }
+    .tl-day.td { font-weight: 700; color: var(--blue); }
+    .tl-track {
+        position: relative; height: 26px;
+        background: repeating-linear-gradient(to right,
+            transparent 0, transparent calc(100% / {{ cols|length }} - 1px),
+            var(--line) calc(100% / {{ cols|length }} - 1px),
+            var(--line) calc(100% / {{ cols|length }}));
+    }
+    .tl-bar { position: absolute; top: 4px; bottom: 4px; border-radius: 4px; background: var(--blue); }
+    .tl-bar.hot { background: var(--red); }
+    .tl-bar.late { background: repeating-linear-gradient(45deg, var(--red) 0 4px, color-mix(in srgb,var(--red) 45%,#000) 4px 8px); }
+    .tl-bar.done { background: color-mix(in srgb, var(--green) 55%, transparent); }
+    .tl-bar.cancel { background: color-mix(in srgb, var(--gray) 45%, transparent); }
+    .tl-leg { display: inline-flex; gap: 6px; align-items: center; }
+    .tl-sample { width: 26px; height: 12px; border-radius: 3px; display: inline-block; }
+    .tl-sample.work { background: var(--blue); }
+    .tl-sample.hot { background: var(--red); }
+    .tl-sample.late { background: repeating-linear-gradient(45deg, var(--red) 0 4px, color-mix(in srgb,var(--red) 45%,#000) 4px 8px); }
+    .tl-sample.done { background: color-mix(in srgb, var(--green) 55%, transparent); }
+    .tl-sample.cancel { background: color-mix(in srgb, var(--gray) 45%, transparent); }
+</style>
+{% endblock %}

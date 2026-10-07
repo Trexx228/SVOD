@@ -1,0 +1,25 @@
+{% with active=tab %}
+<nav class="me-tabs">
+    <a class="pill {% if active == 'overview' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=overview">Обзор</a>
+    <a class="pill {% if active == 'tasks' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=tasks">Мои задачи</a>
+    <a class="pill {% if active == 'sessions' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=sessions">Мои часы</a>
+    <a class="pill {% if active == 'kpi' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=kpi">Мой KPI</a>
+    <a class="pill {% if active == 'motivation' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=motivation">Мотивация</a>
+    <a class="pill {% if active == 'logs' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=logs">Мои действия</a>
+    <a class="pill {% if active == 'profile' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=profile">Профиль</a>
+    <a class="pill {% if active == 'settings' %}on{% endif %}"
+       href="{% url 'me_home' %}?tab=settings">Настройки</a>
+</nav>
+<style>
+    .me-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .me-tabs .pill{font-size:13px}
+    .me-tabs .pill.on{background:var(--softblue);color:var(--blue);border-color:var(--blue)}
+</style>
+{% endwith %}

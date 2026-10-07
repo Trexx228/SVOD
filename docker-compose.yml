@@ -1,0 +1,25 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: svod:local
+    container_name: svod-web
+    env_file:
+      - .env
+    environment:
+      # Volume-пути. Перекрывают то, что может быть в .env.
+      DJANGO_DB_PATH: /data/db.sqlite3
+      DJANGO_MEDIA_ROOT: /data/media
+      # Пилот: media раздаёт Django (в 7.3 это заберёт nginx).
+      DJANGO_SERVE_MEDIA: "1"
+      # Пилот: планировщик в одном контейнере с web.
+      RUN_SCHEDULER: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - svod_data:/data
+    restart: unless-stopped
+
+volumes:
+  svod_data:

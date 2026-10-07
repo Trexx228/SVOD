@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .or-filter{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;
+               align-items:end;margin-bottom:14px}
+    @media(max-width:900px){.or-filter{grid-template-columns:1fr 1fr}}
+    .or-filter label{margin:0 0 4px}
+
+    .or-table{width:100%;border-collapse:collapse;font-size:13px}
+    .or-table th,.or-table td{padding:9px 12px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:middle}
+    .or-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .or-table tbody tr:hover{background:var(--soft)}
+    .or-table a{color:var(--blue);text-decoration:none;font-weight:600}
+    .or-table a:hover{text-decoration:underline}
+    .or-table .num{text-align:right;font-variant-numeric:tabular-nums}
+    .or-progress{display:flex;align-items:center;gap:6px}
+    .or-bar{flex:1 1 auto;min-width:60px;height:6px;border-radius:999px;
+            background:color-mix(in srgb,var(--line) 70%,transparent);overflow:hidden}
+    .or-bar > div{height:100%;background:linear-gradient(90deg,var(--blue),var(--green))}
+    .or-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .or-badge.ok{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .or-badge.info{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .or-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .or-badge.muted{background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Заказы · {{ total }}</h3>
+        <a class="btn green" href="{% url 'settings_order_new' %}">+ Новый заказ</a>
+    </div>
+
+    <form method="get" class="or-filter">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="Номер, изделие, комментарий">
+        </div>
+        <div>
+            <label>Отгрузка с</label>
+            <input type="date" name="ship_from" value="{{ ship_from }}">
+        </div>
+        <div>
+            <label>Отгрузка по</label>
+            <input type="date" name="ship_to" value="{{ ship_to }}">
+        </div>
+        <div>
+            <label>Состояние</label>
+            <select name="state">
+                <option value="">— любой —</option>
+                <option value="active" {% if state == 'active' %}selected{% endif %}>Активные (есть работа)</option>
+                <option value="done" {% if state == 'done' %}selected{% endif %}>Завершённые</option>
+                <option value="empty" {% if state == 'empty' %}selected{% endif %}>Пустые (нет задач)</option>
+            </select>
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_orders' %}">Сброс</a>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="or-table">
+            <thead>
+            <tr>
+                <th>Номер</th>
+                <th>Изделие</th>
+                <th>Отгрузка</th>
+                <th class="num">Веток</th>
+                <th class="num">Задач</th>
+                <th>Прогресс</th>
+                <th style="text-align:right">Действия</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in orders %}
+            <tr>
+                <td><a href="{% url 'settings_order_detail' r.order.pk %}">{{ r.order.number }}</a></td>
+                <td>{{ r.order.product|truncatechars:60 }}</td>
+                <td>
+                    {% if r.order.ship_due %}{{ r.order.ship_due|date:'d.m.Y' }}{% else %}—{% endif %}
+                </td>
+                <td class="num">{{ r.branches }}</td>
+                <td class="num">
+                    {{ r.tasks_total }}
+                    {% if r.tasks_active %}<span class="or-badge info">акт. {{ r.tasks_active }}</span>{% endif %}
+                </td>
+                <td>
+                    <div class="or-progress">
+                        <div class="or-bar"><div style="width:{{ r.progress }}%"></div></div>
+                        <span class="or-badge {% if r.progress == 100 %}ok{% elif r.progress > 0 %}info{% else %}muted{% endif %}">
+                            {{ r.tasks_done }}/{{ r.tasks_total }}
+                        </span>
+                    </div>
+                </td>
+                <td style="text-align:right;white-space:nowrap">
+                    <a class="btn blue" href="{% url 'settings_order_detail' r.order.pk %}"
+                       style="padding:6px 12px;font-size:13px">Открыть</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px 0">
+                Заказов нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .h-banner{border-radius:14px;padding:16px 20px;margin-bottom:16px;
+              display:flex;justify-content:space-between;align-items:center;
+              gap:14px;flex-wrap:wrap;font-weight:700}
+    .h-banner.ok{background:color-mix(in srgb,var(--green) 12%,var(--soft));
+                 border:1px solid color-mix(in srgb,var(--green) 45%,var(--line))}
+    .h-banner.warn{background:color-mix(in srgb,var(--orange) 12%,var(--soft));
+                   border:1px solid color-mix(in srgb,var(--orange) 45%,var(--line))}
+    .h-banner.crit{background:color-mix(in srgb,var(--red) 12%,var(--soft));
+                   border:1px solid color-mix(in srgb,var(--red) 50%,var(--line))}
+    .h-banner .v{font-size:22px}
+    .h-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+    .h-card{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+    .h-card.ok{border-color:color-mix(in srgb,var(--green) 45%,var(--line))}
+    .h-card.warn{border-color:color-mix(in srgb,var(--orange) 50%,var(--line))}
+    .h-card.crit{border-color:color-mix(in srgb,var(--red) 55%,var(--line))}
+    .h-card h4{margin:0 0 8px;font-size:13px;text-transform:uppercase;
+               letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center}
+    .h-card .state{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+    .h-card .state.ok{background:color-mix(in srgb,var(--green) 22%,transparent);color:var(--green)}
+    .h-card .state.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .h-card .state.crit{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+    .h-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;
+           padding:4px 0;border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
+    .h-row:last-child{border-bottom:0}
+    .h-row .k{color:var(--muted)}
+    .h-row .v{font-weight:600;text-align:right;word-break:break-all}
+    .h-code{font-family:'Consolas','Menlo',monospace;font-size:12px;
+            background:var(--card);border:1px solid var(--line);border-radius:8px;
+            padding:8px 10px;word-break:break-all;margin-top:8px}
+</style>
+
+{% if not critical_ok %}
+<div class="h-banner crit">
+    <span>Критично: проверь БД и диск</span>
+    <span class="v">✗</span>
+</div>
+{% elif warnings %}
+<div class="h-banner warn">
+    <span>Внимание: {{ warnings|join:', ' }}</span>
+    <span class="v">!</span>
+</div>
+{% else %}
+<div class="h-banner ok">
+    <span>Все проверки пройдены</span>
+    <span class="v">✓</span>
+</div>
+{% endif %}
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="?format=json">JSON</a>
+    <a class="pill" href="?format=text">Текст</a>
+    <a class="pill" href="{% url 'settings_health' %}">Обновить</a>
+</div>
+
+<div class="h-grid">
+
+    <div class="h-card {% if checks.db.ok %}ok{% else %}crit{% endif %}">
+        <h4>База данных <span class="state {% if checks.db.ok %}ok{% else %}crit{% endif %}">{% if checks.db.ok %}ok{% else %}fail{% endif %}</span></h4>
+        <div class="h-row"><span class="k">Движок</span><span class="v">{{ checks.db.engine }}</span></div>
+        <div class="h-row"><span class="k">Размер</span><span class="v">{{ checks.db.size_bytes|filesizeformat }}</span></div>
+        <div class="h-row"><span class="k">Таблиц</span><span class="v">{{ checks.db.tables }}</span></div>
+        <div class="h-row"><span class="k">Последняя запись</span>
+            <span class="v">
+                {% if checks.db.last_write_ago_sec is not None %}
+                    {{ checks.db.last_write_ago_sec }} сек назад
+                {% else %}—{% endif %}
+            </span>
+        </div>
+        {% if checks.db.error %}<div class="h-code">{{ checks.db.error }}</div>{% endif %}
+    </div>
+
+    <div class="h-card {% if checks.disk.ok %}ok{% else %}crit{% endif %}">
+        <h4>Диск <span class="state {% if checks.disk.ok %}ok{% else %}crit{% endif %}">{% if checks.disk.ok %}ok{% else %}fail{% endif %}</span></h4>
+        <div class="h-row"><span class="k">Всего</span><span class="v">{{ checks.disk.total|filesizeformat }}</span></div>
+        <div class="h-row"><span class="k">Занято</span><span class="v">{{ checks.disk.used|filesizeformat }}</span></div>
+        <div class="h-row"><span class="k">Свободно</span><span class="v">{{ checks.disk.free|filesizeformat }}</span></div>
+    </div>
+
+    <div class="h-card {% if checks.backups.ok %}ok{% else %}warn{% endif %}">
+        <h4>Резервные копии <span class="state {% if checks.backups.ok %}ok{% else %}warn{% endif %}">{% if checks.backups.ok %}ok{% else %}warn{% endif %}</span></h4>
+        <div class="h-row"><span class="k">Файлов</span><span class="v">{{ checks.backups.count }}</span></div>
+        <div class="h-row"><span class="k">Объём</span><span class="v">{{ checks.backups.total_bytes|filesizeformat }}</span></div>
+        {% if checks.backups.latest %}
+        <div class="h-row"><span class="k">Последний</span>
+            <span class="v">{{ checks.backups.latest_age_hours }} ч назад</span>
+        </div>
+        <div class="h-code">{{ checks.backups.latest }}</div>
+        {% else %}
+        <div class="h-row"><span class="k">Состояние</span>
+            <span class="v">бэкапов нет — нажми «Создать бэкап»</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="h-card {% if checks.admins.ok %}ok{% else %}crit{% endif %}">
+        <h4>Администраторы <span class="state {% if checks.admins.ok %}ok{% else %}crit{% endif %}">{% if checks.admins.ok %}ok{% else %}fail{% endif %}</span></h4>
+        <div class="h-row"><span class="k">Активных</span><span class="v">{{ checks.admins.count }}</span></div>
+        {% if not checks.admins.ok %}
+        <div class="h-row"><span class="k">Риск</span>
+            <span class="v">Назначьте резервного админа</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="h-card {% if checks.alerts.ok %}ok{% else %}warn{% endif %}">
+        <h4>Уведомления <span class="state {% if checks.alerts.ok %}ok{% else %}warn{% endif %}">{% if checks.alerts.ok %}ok{% else %}warn{% endif %}</span></h4>
+        <div class="h-row"><span class="k">Непрочитанных</span><span class="v">{{ checks.alerts.unseen }}</span></div>
+        <div class="h-row"><span class="k">Тревожных</span><span class="v">{{ checks.alerts.danger }}</span></div>
+        {% if not checks.alerts.ok %}
+        <div style="margin-top:8px"><a class="pill" href="{% url 'settings_alerts' %}">Открыть уведомления</a></div>
+        {% endif %}
+    </div>
+
+    <div class="h-card {% if checks.norm.ok %}ok{% else %}warn{% endif %}">
+        <h4>Норма часов <span class="state {% if checks.norm.ok %}ok{% else %}warn{% endif %}">{% if checks.norm.ok %}ok{% else %}warn{% endif %}</span></h4>
+        <div class="h-row"><span class="k">Текущая</span>
+            <span class="v">
+                {% if checks.norm.hours_per_day is not None %}
+                    {{ checks.norm.hours_per_day }} ч/день
+                {% else %}не задана{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <div class="h-card {% if checks.ad.ok %}ok{% else %}warn{% endif %}">
+        <h4>Active Directory <span class="state {% if checks.ad.ok %}ok{% else %}warn{% endif %}">{% if checks.ad.enabled %}on{% else %}off{% endif %}</span></h4>
+        <div class="h-row"><span class="k">AD_ENABLED</span>
+            <span class="v">{% if checks.ad.enabled %}да{% else %}нет{% endif %}</span>
+        </div>
+        <div class="h-row"><span class="k">Сервер</span><span class="v">{{ checks.ad.server|default:'—' }}</span></div>
+        <div class="h-row"><span class="k">Домен</span><span class="v">{{ checks.ad.domain|default:'—' }}</span></div>
+        <div style="margin-top:8px"><a class="pill" href="{% url 'settings_system' %}?check_ad=1">Проверить доступность →</a></div>
+    </div>
+
+</div>
+{% endblock %}

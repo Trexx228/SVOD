@@ -1,0 +1,645 @@
+/* Кнопка печати — адаптив под все темы */
+.btn-print-outline {
+    border: 2px solid var(--print-border, currentColor);
+    background: var(--print-bg, transparent);
+    color: var(--print-color, inherit);
+    padding: 0.5rem 1.2rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-print-outline:hover {
+    background: var(--print-hover, rgba(128, 128, 128, 0.2));
+    color: var(--print-hover-color, inherit);
+}
+
+/* Кнопки — адаптив под все 7 тем */
+.btn-primary {
+    background: var(--btn-primary-bg, #0d6efd);
+    border-color: var(--btn-primary-border, #0d6efd);
+    color: var(--btn-primary-color, #fff);
+}
+
+.btn-primary:hover {
+    background: var(--btn-primary-hover, #0b5ed7);
+    border-color: var(--btn-primary-hover-border, #0a58ca);
+}
+
+.btn-success {
+    background: var(--btn-success-bg, #198754);
+    border-color: var(--btn-success-border, #198754);
+    color: var(--btn-success-color, #fff);
+}
+
+.btn-warning {
+    background: var(--btn-warning-bg, #ffc107);
+    border-color: var(--btn-warning-border, #ffc107);
+    color: var(--btn-warning-color, #000);
+}
+
+.btn-danger {
+    background: var(--btn-danger-bg, #dc3545);
+    border-color: var(--btn-danger-border, #dc3545);
+    color: var(--btn-danger-color, #fff);
+}
+
+/* ─── Темы: print + buttons ─── */
+
+/* Тёмная тема (default) */
+.theme-dark,
+body:not([data-theme]) {
+    --print-border: #6ea8fe;
+    --print-bg: transparent;
+    --print-color: #6ea8fe;
+    --print-hover: #6ea8fe;
+    --print-hover-color: #0d1117;
+
+    --btn-primary-bg: #0d6efd;
+    --btn-primary-border: #0d6efd;
+    --btn-primary-color: #fff;
+    --btn-primary-hover: #0b5ed7;
+    --btn-primary-hover-border: #0a58ca;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Светлая тема */
+.theme-light {
+    --print-border: #0d6efd;
+    --print-bg: transparent;
+    --print-color: #0d6efd;
+    --print-hover: #0d6efd;
+    --print-hover-color: #fff;
+
+    --btn-primary-bg: #0d6efd;
+    --btn-primary-border: #0d6efd;
+    --btn-primary-color: #fff;
+    --btn-primary-hover: #0b5ed7;
+    --btn-primary-hover-border: #0a58ca;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Графит */
+.theme-graphite {
+    --print-border: #adb5bd;
+    --print-bg: transparent;
+    --print-color: #f8f9fa;
+    --print-hover: #adb5bd;
+    --print-hover-color: #212529;
+
+    --btn-primary-bg: #6c757d;
+    --btn-primary-border: #6c757d;
+    --btn-primary-color: #fff;
+    --btn-primary-hover: #5c636a;
+    --btn-primary-hover-border: #565e64;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Океан */
+.theme-ocean {
+    --print-border: #0dcaf0;
+    --print-bg: transparent;
+    --print-color: #0dcaf0;
+    --print-hover: #0dcaf0;
+    --print-hover-color: #031624;
+
+    --btn-primary-bg: #0dcaf0;
+    --btn-primary-border: #0dcaf0;
+    --btn-primary-color: #000;
+    --btn-primary-hover: #31d2f2;
+    --btn-primary-hover-border: #25cff2;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Тайга */
+.theme-forest {
+    --print-border: #198754;
+    --print-bg: transparent;
+    --print-color: #75b798;
+    --print-hover: #198754;
+    --print-hover-color: #0a1f14;
+
+    --btn-primary-bg: #198754;
+    --btn-primary-border: #198754;
+    --btn-primary-color: #fff;
+    --btn-primary-hover: #157347;
+    --btn-primary-hover-border: #146c43;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Песок */
+.theme-sand {
+    --print-border: #d4a373;
+    --print-bg: transparent;
+    --print-color: #d4a373;
+    --print-hover: #d4a373;
+    --print-hover-color: #2b1d0e;
+
+    --btn-primary-bg: #d4a373;
+    --btn-primary-border: #d4a373;
+    --btn-primary-color: #000;
+    --btn-primary-hover: #c4935f;
+    --btn-primary-hover-border: #b8865a;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Контрастная */
+.theme-contrast {
+    --print-border: #fff;
+    --print-bg: transparent;
+    --print-color: #fff;
+    --print-hover: #fff;
+    --print-hover-color: #000;
+
+    --btn-primary-bg: #fff;
+    --btn-primary-border: #fff;
+    --btn-primary-color: #000;
+    --btn-primary-hover: #e0e0e0;
+    --btn-primary-hover-border: #d0d0d0;
+
+    --btn-success-bg: #198754;
+    --btn-success-border: #198754;
+    --btn-success-color: #fff;
+
+    --btn-warning-bg: #ffc107;
+    --btn-warning-border: #ffc107;
+    --btn-warning-color: #000;
+
+    --btn-danger-bg: #dc3545;
+    --btn-danger-border: #dc3545;
+    --btn-danger-color: #fff;
+}
+
+/* Стили для печати */
+@media print {
+    .btn-print-outline,
+    nav,
+    .btn-group {
+        display: none !important;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+
+    .table {
+        border: 1px solid #000 !important;
+    }
+
+    .table th,
+    .table td {
+        border: 1px solid #000 !important;
+        color: #000 !important;
+    }
+}
+
+/* Компактная форма благодарности в таблице */
+.kudos-form .input-group {
+    flex-wrap: nowrap;
+}
+
+.kudos-form .form-control {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem 0 0 0.375rem;
+}
+
+.kudos-form .btn {
+    border-radius: 0 0.375rem 0.375rem 0;
+    padding: 0.25rem 0.6rem;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Карточки задач: кнопки прижаты к низу */
+.task-card, .card, [class*="card"] {
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+}
+
+.task-card .actions,
+.card .actions,
+[class*="card"] .actions,
+.task-card form,
+.card form {
+    margin-top: auto;
+    padding-top: 1rem;
+}
+
+/* Для dashboard.html — карточки моих задач */
+.staff-dashboard .card,
+.dashboard .card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.staff-dashboard .card form,
+.dashboard .card form {
+    margin-top: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Кнопка "Задать период" — видимость во всех темах */
+.btn-outline,
+button.btn-outline,
+a.btn-outline {
+    color: var(--btn-outline-color, #fff) !important;
+    border-color: var(--btn-outline-border, rgba(255,255,255,0.5)) !important;
+    background: var(--btn-outline-bg, transparent) !important;
+}
+
+.btn-outline:hover {
+    background: var(--btn-outline-hover, rgba(255,255,255,0.1)) !important;
+}
+
+/* Тема океан (синяя) — кнопка "Задать период" */
+.theme-ocean .btn-outline,
+.theme-ocean button.btn-outline {
+    color: #0dcaf0 !important;
+    border-color: #0dcaf0 !important;
+}
+
+.theme-ocean .btn-outline:hover {
+    background: rgba(13, 202, 240, 0.1) !important;
+}
+
+/* Поля дат в форме постановки */
+.date-range {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.date-field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.date-field label {
+    font-weight: 600;
+    color: var(--text-primary, #fff);
+}
+
+.date-field input[readonly] {
+    background: var(--input-bg, rgba(255,255,255,0.1));
+    border: 1px solid var(--input-border, rgba(255,255,255,0.2));
+    color: var(--text-primary, #fff);
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+}
+
+.date-field input[readonly]:focus {
+    outline: none;
+    border-color: var(--accent, #0d6efd);
+}
+
+.cal-trigger {
+    background: var(--btn-primary-bg, #0d6efd);
+    border: none;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.calendar-popup {
+    position: absolute;
+    z-index: 1000;
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border, rgba(255,255,255,0.2));
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+}
+
+.cal-grid button {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary, #fff);
+    padding: 0.25rem;
+    cursor: pointer;
+    border-radius: 0.25rem;
+}
+
+.cal-grid button:hover {
+    background: var(--accent, #0d6efd);
+}
+
+.cal-footer {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary, rgba(255,255,255,0.6));
+    margin-top: 0.5rem;
+}
+
+/* Кнопки приёмки одинакового размера */
+.btn-accept,
+.btn-rework {
+    min-width: 140px;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    border-radius: 0.5rem;
+    display: inline-block;
+}
+
+.btn-accept {
+    background: var(--btn-success-bg, #198754);
+    color: var(--btn-success-color, #fff);
+    border: 1px solid var(--btn-success-border, #198754);
+}
+
+.btn-accept:hover {
+    background: var(--btn-success-bg, #157347);
+}
+
+.btn-rework {
+    background: var(--btn-warning-bg, #ffc107);
+    color: var(--btn-warning-color, #000);
+    border: 1px solid var(--btn-warning-border, #ffc107);
+}
+
+.btn-rework:hover {
+    background: #e0a800;
+}
+
+/* Кнопка "На доработку" — адаптив под все 7 тем */
+.theme-dark .btn-rework,
+body:not([data-theme]) .btn-rework {
+    background: #ffc107;
+    color: #000;
+    border-color: #ffc107;
+}
+
+.theme-light .btn-rework {
+    background: #ffc107;
+    color: #000;
+    border-color: #ffc107;
+}
+
+.theme-graphite .btn-rework {
+    background: #adb5bd;
+    color: #212529;
+    border-color: #adb5bd;
+}
+
+.theme-ocean .btn-rework {
+    background: #0dcaf0;
+    color: #000;
+    border-color: #0dcaf0;
+}
+
+.theme-forest .btn-rework {
+    background: #198754;
+    color: #fff;
+    border-color: #198754;
+}
+
+.theme-sand .btn-rework {
+    background: #d4a373;
+    color: #000;
+    border-color: #d4a373;
+}
+
+.theme-contrast .btn-rework {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+}
+
+/* Кнопка отмены задачи — адаптив под все темы */
+.btn-cancel {
+    background: var(--btn-cancel-bg, #6c757d);
+    color: var(--btn-cancel-color, #fff);
+    border: 1px solid var(--btn-cancel-border, #6c757d);
+    padding: 0.6rem 1.2rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+    background: var(--btn-cancel-hover, #5a6268);
+}
+
+.theme-dark .btn-cancel,
+body:not([data-theme]) .btn-cancel {
+    --btn-cancel-bg: #495057;
+    --btn-cancel-color: #f8f9fa;
+    --btn-cancel-border: #6c757d;
+    --btn-cancel-hover: #5a6268;
+}
+
+.theme-light .btn-cancel {
+    --btn-cancel-bg: #6c757d;
+    --btn-cancel-color: #fff;
+    --btn-cancel-border: #6c757d;
+    --btn-cancel-hover: #5a6268;
+}
+
+.theme-ocean .btn-cancel {
+    --btn-cancel-bg: #495057;
+    --btn-cancel-color: #e0f7ff;
+    --btn-cancel-border: #6c757d;
+    --btn-cancel-hover: #5a6268;
+}
+
+.theme-forest .btn-cancel {
+    --btn-cancel-bg: #495057;
+    --btn-cancel-color: #e8f5e9;
+    --btn-cancel-border: #6c757d;
+}
+
+.theme-sand .btn-cancel {
+    --btn-cancel-bg: #8b7355;
+    --btn-cancel-color: #fff;
+    --btn-cancel-border: #a0826d;
+}
+
+.theme-contrast .btn-cancel {
+    --btn-cancel-bg: #000;
+    --btn-cancel-color: #fff;
+    --btn-cancel-border: #fff;
+}
+
+/* Чаты: поиск и фильтр */
+.chat-search-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+}
+
+.chat-filter,
+.chat-search {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.6rem 0.9rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--chat-border, rgba(255,255,255,0.15));
+    background: var(--chat-input-bg, rgba(255,255,255,0.05));
+    color: var(--chat-text, #fff);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.chat-filter:focus,
+.chat-search:focus {
+    border-color: var(--accent, #0d6efd);
+}
+
+.chat-filter option {
+    background: var(--chat-option-bg, #1a1a2e);
+    color: var(--chat-text, #fff);
+}
+
+.theme-light .chat-filter,
+.theme-light .chat-search {
+    --chat-border: #dee2e6;
+    --chat-input-bg: #fff;
+    --chat-text: #212529;
+    --chat-option-bg: #fff;
+}
+
+.theme-ocean .chat-filter,
+.theme-ocean .chat-search {
+    --chat-border: rgba(13, 202, 240, 0.3);
+    --chat-input-bg: rgba(13, 202, 240, 0.05);
+}
+
+/* Кнопки приёмки — одинаковый размер с отступом */
+.accept-rework-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 140px;
+}
+
+.accept-rework-group .btn-accept,
+.accept-rework-group .btn-rework {
+    width: 100%;
+    min-width: 140px;
+    padding: 0.6rem 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-accept {
+    background: var(--btn-success-bg, #198754);
+    color: var(--btn-success-color, #fff);
+}
+
+.btn-accept:hover {
+    background: var(--btn-success-bg, #157347);
+}
+
+.btn-rework {
+    background: var(--btn-warning-bg, #ffc107);
+    color: var(--btn-warning-color, #000);
+}
+
+.btn-rework:hover {
+    background: #e0a800;
+}

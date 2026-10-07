@@ -1,0 +1,376 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Отчёт по заказам" %}
+
+{% include 'manager/_reports_subnav.html' %}
+
+<style>
+    .or-toolbar{
+        display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+        margin-bottom:14px;
+    }
+    .or-tiles{
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+        gap:10px;margin-bottom:18px;
+    }
+    .or-tile{
+        background:var(--soft);border:1px solid var(--line);
+        border-radius:12px;padding:12px 14px;
+    }
+    .or-tile .l{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .or-tile .v{font-size:26px;font-weight:800;margin-top:2px;letter-spacing:-.01em}
+    .or-tile .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .or-tile.ok .v{color:var(--green)}
+    .or-tile.warn .v{color:var(--orange)}
+    .or-tile.danger .v{color:var(--red)}
+    .or-tile.info .v{color:var(--blue)}
+
+    .or-tbl{
+        width:100%;border-collapse:collapse;font-size:13px;
+    }
+    .or-tbl th,.or-tbl td{
+        padding:8px 10px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:top;
+    }
+    .or-tbl th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .or-tbl tbody tr:hover{background:var(--soft)}
+    .or-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+    .or-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .or-tbl a:hover{text-decoration:underline}
+    .or-badge{
+        display:inline-block;padding:2px 8px;border-radius:999px;
+        font-size:11px;font-weight:700;
+    }
+    .or-badge.danger{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+    .or-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .or-badge.info{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .or-badge.ok{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .or-badge.muted{background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+</style>
+
+{# ─── Панель управления ─── #}
+<div class="or-toolbar">
+    <a class="pill {% if mode == 'quarter' %}on{% endif %}"
+       href="?mode=quarter&year={{ year }}&quarter={{ quarter }}">Квартал</a>
+    <a class="pill {% if mode == 'year' %}on{% endif %}"
+       href="?mode=year&year={{ year }}">Год</a>
+
+    {% if mode == 'quarter' %}
+    <span style="margin-left:12px;color:var(--muted);font-size:13px">Квартал:</span>
+    {% for q in "1234" %}
+    <a class="pill {% if quarter|stringformat:'s' == q %}on{% endif %}"
+       href="?mode=quarter&year={{ year }}&quarter={{ q }}">Q{{ q }}</a>
+    {% endfor %}
+    {% endif %}
+
+    <span style="margin-left:12px;color:var(--muted);font-size:13px">Год:</span>
+    {% for y in years_available %}
+    <a class="pill {% if year == y %}on{% endif %}"
+       href="?mode={{ mode }}&year={{ y }}{% if mode == 'quarter' %}&quarter={{ quarter }}{% endif %}">{{ y }}</a>
+    {% endfor %}
+
+    <a class="btn blue" style="margin-left:auto"
+       href="{% url 'manager_orders_report_csv' %}?mode={{ mode }}&year={{ year }}&quarter={{ quarter }}">
+        ⬇ CSV
+    </a>
+</div>
+
+<div class="card" style="padding:12px 16px;margin-bottom:14px">
+    <b>Период:</b> {{ period_label }}
+    <span style="color:var(--muted);margin-left:12px">
+        {{ q_start|date:'d.m.Y' }} — {{ q_end|date:'d.m.Y' }}
+    </span>
+</div>
+
+{# ─── Плитки ─── #}
+<div class="or-tiles">
+    <div class="or-tile info">
+        <div class="l">Всего заказов</div>
+        <div class="v">{{ grand.total_orders }}</div>
+        <div class="h">в периоде</div>
+    </div>
+    <div class="or-tile ok">
+        <div class="l">Отгружено в срок</div>
+        <div class="v">{{ grand.shipped_on_time }}</div>
+        <div class="h">из {{ grand.shipped_on_time|add:grand.shipped_late }}</div>
+    </div>
+    <div class="or-tile {% if grand.shipped_late %}warn{% endif %}">
+        <div class="l">Отгружено с опозданием</div>
+        <div class="v">{{ grand.shipped_late }}</div>
+    </div>
+    <div class="or-tile {% if grand.overdue_now %}danger{% endif %}">
+        <div class="l">Просрочен отгрузка</div>
+        <div class="v">{{ grand.overdue_now }}</div>
+        <div class="h">на сегодня</div>
+    </div>
+    <div class="or-tile info">
+        <div class="l">В работе</div>
+        <div class="v">{{ grand.in_progress }}</div>
+        <div class="h">есть открытые задачи</div>
+    </div>
+    <div class="or-tile {% if grand.otd and grand.otd >= 80 %}ok{% elif grand.otd and grand.otd < 50 %}danger{% else %}warn{% endif %}">
+        <div class="l">OTD заказов</div>
+        <div class="v">{% if grand.otd is not None %}{{ grand.otd }}%{% else %}—{% endif %}</div>
+        <div class="h">доля отгруженных в срок</div>
+    </div>
+    <div class="or-tile">
+        <div class="l">Медиана цикла</div>
+        <div class="v">{% if grand.median_cycle is not None %}{{ grand.median_cycle }}{% else %}—{% endif %}</div>
+        <div class="h">дней «контракт → отгрузка»</div>
+    </div>
+    <div class="or-tile">
+        <div class="l">План / Факт, ч</div>
+        <div class="v">{{ grand.total_plan|floatformat:0 }} / {{ grand.total_fact|floatformat:0 }}</div>
+    </div>
+</div>
+
+{# ─── Проблемные заказы ─── #}
+{% if problem_orders %}
+<div class="card" style="border-left:4px solid var(--orange)">
+    <h3 style="margin:0 0 10px">⚠ Требуют внимания <span style="color:var(--muted);font-weight:600;font-size:13px">
+        ({{ problem_orders|length }})</span></h3>
+    <table class="or-tbl">
+        <thead>
+        <tr>
+            <th>Заказ</th>
+            <th>Ответственный</th>
+            <th>Отгрузка</th>
+            <th>Что не так</th>
+            <th class="num">Сдвигов</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for p in problem_orders %}
+        <tr>
+            <td>
+                <a href="{% url 'settings_order_detail' p.order.pk %}" target="_blank">
+                    {{ p.order.number }}</a>
+                <div style="color:var(--muted);font-size:11px">
+                    {{ p.order.product|truncatechars:50 }}
+                </div>
+            </td>
+            <td>{{ p.order.owner.full_name|default:'—' }}</td>
+            <td style="white-space:nowrap">
+                {% if p.is_overdue %}
+                <span class="or-badge danger">{{ p.order.ship_due|date:'d.m.Y' }}</span>
+                {% else %}
+                {{ p.order.ship_due|date:'d.m.Y'|default:'—' }}
+                {% endif %}
+            </td>
+            <td>
+                {% for pr in p.problems %}
+                <span class="or-badge warn">{{ pr }}</span>
+                {% endfor %}
+            </td>
+            <td class="num">
+                {% if p.shifts %}<b>{{ p.shifts }}</b>{% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ─── График по месяцам ─── #}
+<div class="card">
+    <h3 style="margin:0 0 10px">Отгрузки по месяцам</h3>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;padding:10px 0;
+                border-bottom:1px solid var(--line)">
+        {% for m in month_stats %}
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+                    align-items:center;height:100%"
+             title="{{ m.label }}: отгружено в срок {{ m.on_time }}, с опозданием {{ m.late }}, в работе {{ m.in_progress }}">
+            {% if m.pct_late %}
+            <div style="width:100%;height:{{ m.pct_late }}%;min-height:2px;
+                        background:color-mix(in srgb,var(--red) 70%,transparent);
+                        border-radius:3px 3px 0 0"></div>
+            {% endif %}
+            {% if m.pct_on_time %}
+            <div style="width:100%;height:{{ m.pct_on_time }}%;min-height:2px;
+                        background:linear-gradient(180deg,var(--green),color-mix(in srgb,var(--green) 55%,#000));
+                        border-radius:3px 3px 0 0"></div>
+            {% endif %}
+            {% if not m.pct_on_time and not m.pct_late and m.pct_total %}
+            <div style="width:100%;height:{{ m.pct_total }}%;min-height:2px;
+                        background:color-mix(in srgb,var(--gray) 45%,transparent);
+                        border-radius:3px 3px 0 0"></div>
+            {% endif %}
+            {% if not m.total %}
+            <div style="width:100%;height:3px;background:var(--line);border-radius:3px"></div>
+            {% endif %}
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">{{ m.label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px">
+        <span><i style="display:inline-block;width:12px;height:10px;background:var(--green);border-radius:2px;margin-right:4px"></i>в срок</span>
+        <span><i style="display:inline-block;width:12px;height:10px;background:color-mix(in srgb,var(--red) 70%,transparent);border-radius:2px;margin-right:4px"></i>с опозданием</span>
+        <span><i style="display:inline-block;width:12px;height:10px;background:color-mix(in srgb,var(--gray) 45%,transparent);border-radius:2px;margin-right:4px"></i>в работе</span>
+    </div>
+</div>
+
+{# ─── Разрез по сериям изделий ─── #}
+{% if series_rows %}
+<div class="card">
+    <h3 style="margin:0 0 10px">Разрез по сериям изделий
+        <span style="color:var(--muted);font-weight:600;font-size:12px">
+            (группировка по первому слову изделия)
+        </span>
+    </h3>
+    <table class="or-tbl">
+        <thead>
+        <tr>
+            <th>Серия</th>
+            <th class="num">Заказов</th>
+            <th class="num">План, ч</th>
+            <th class="num">Факт, ч</th>
+            <th class="num">В срок</th>
+            <th class="num">С опозд.</th>
+            <th class="num">OTD</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in series_rows %}
+        <tr>
+            <td><b>{{ r.name }}</b></td>
+            <td class="num">{{ r.orders }}</td>
+            <td class="num">{{ r.plan|floatformat:1 }}</td>
+            <td class="num">{{ r.fact|floatformat:1 }}</td>
+            <td class="num" style="color:var(--green);font-weight:700">{{ r.on_time }}</td>
+            <td class="num" {% if r.late %}style="color:var(--red);font-weight:700"{% endif %}>{{ r.late }}</td>
+            <td class="num">
+                {% if r.otd is not None %}
+                <span class="or-badge {% if r.otd >= 80 %}ok{% elif r.otd < 50 %}danger{% else %}warn{% endif %}">
+                        {{ r.otd }}%
+                    </span>
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:11px;margin:8px 0 0">
+        💡 Для точной группировки добавьте в модель <code>Order</code> поле
+        <code>series</code> и заполняйте его вручную. Пока используется первое слово
+        из поля «Изделие».
+    </p>
+</div>
+{% endif %}
+
+{# ─── Разрез по отделам ─── #}
+{% if dept_rows %}
+<div class="card">
+    <h3 style="margin:0 0 10px">Разрез по отделам</h3>
+    <table class="or-tbl">
+        <thead>
+        <tr>
+            <th>Подразделение</th>
+            <th class="num">Заказов</th>
+            <th class="num">Задач</th>
+            <th class="num">Закрыто</th>
+            <th class="num">План, ч</th>
+            <th class="num">Факт, ч</th>
+            <th class="num">Просрочено</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in dept_rows %}
+        <tr>
+            <td><b>{{ r.name }}</b></td>
+            <td class="num">{{ r.orders }}</td>
+            <td class="num">{{ r.tasks }}</td>
+            <td class="num">{{ r.done }}</td>
+            <td class="num">{{ r.plan|floatformat:1 }}</td>
+            <td class="num">{{ r.fact|floatformat:1 }}</td>
+            <td class="num" {% if r.overdue %}style="color:var(--red);font-weight:700"{% endif %}>
+                {{ r.overdue }}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+        <tr style="background:var(--soft);font-weight:700">
+            <td>Итого</td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num">{{ grand.total_plan|floatformat:1 }}</td>
+            <td class="num">{{ grand.total_fact|floatformat:1 }}</td>
+            <td class="num"></td>
+        </tr>
+        </tfoot>
+    </table>
+</div>
+{% endif %}
+
+{# ─── Полный список заказов ─── #}
+<div class="card">
+    <h3 style="margin:0 0 10px">Все заказы периода ({{ order_rows|length }})</h3>
+    {% if order_rows %}
+    <div style="overflow-x:auto">
+        <table class="or-tbl">
+            <thead>
+            <tr>
+                <th>Заказ</th>
+                <th>Ответственный</th>
+                <th>Этап</th>
+                <th>Контракт</th>
+                <th>Проектирование</th>
+                <th>Отгрузка</th>
+                <th class="num">Задач</th>
+                <th class="num">План, ч</th>
+                <th class="num">Факт, ч</th>
+                <th class="num">Δ</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in order_rows %}
+            <tr>
+                <td>
+                    <a href="{% url 'settings_order_detail' r.order.pk %}" target="_blank">
+                        {{ r.order.number }}</a>
+                    <div style="color:var(--muted);font-size:11px">{{ r.order.product|truncatechars:50 }}</div>
+                </td>
+                <td>{{ r.order.owner.full_name|default:'—' }}</td>
+                <td>
+                    <span class="or-badge {% if r.stage.cls == 'danger' %}danger{% elif r.stage.cls == 'warn' %}warn{% elif r.stage.cls == 'info' %}info{% else %}muted{% endif %}">
+                        {{ r.stage.label }}
+                    </span>
+                </td>
+                <td style="white-space:nowrap">{{ r.order.contract_start|date:'d.m.Y'|default:'—' }}</td>
+                <td style="white-space:nowrap">
+                    {% if r.order.design_start or r.order.design_end %}
+                    {{ r.order.design_start|date:'d.m'|default:'—' }} → {{ r.order.design_end|date:'d.m.Y'|default:'—' }}
+                    {% else %}—{% endif %}
+                </td>
+                <td style="white-space:nowrap">{{ r.order.ship_due|date:'d.m.Y'|default:'—' }}</td>
+                <td class="num">{{ r.done_count }} / {{ r.tasks_count }}</td>
+                <td class="num">{{ r.plan_total|floatformat:1 }}</td>
+                <td class="num">{{ r.fact_total|floatformat:1 }}</td>
+                <td class="num">
+                    {% if r.delta > 0.05 %}
+                    <span style="color:var(--red);font-weight:700">+{{ r.delta|floatformat:1 }}</span>
+                    {% elif r.delta < -0.05 %}
+                    <span style="color:var(--green);font-weight:700">{{ r.delta|floatformat:1 }}</span>
+                    {% else %}
+                    0,0
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--muted)">Заказов в периоде нет.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

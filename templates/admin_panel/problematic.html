@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+{% if is_narrow_scope %}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 40%,var(--line));
+            margin-bottom:14px;padding:10px 16px;font-size:13px">
+    Показаны данные только по вашему подразделению:
+    <b>{{ scope_department.name }}</b>.
+</div>
+{% endif %}
+
+<style>
+    .pb-filter{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;
+               align-items:end;margin-bottom:14px;max-width:720px}
+    @media(max-width:800px){.pb-filter{grid-template-columns:1fr 1fr}}
+    .pb-filter label{margin:0 0 4px}
+
+    .pb-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+                gap:10px;margin-bottom:16px}
+    .pb-card{background:var(--soft);border:1px solid var(--line);border-radius:12px;
+             padding:12px 14px;display:flex;justify-content:space-between;
+             gap:12px;align-items:center;text-decoration:none;color:inherit;
+             transition:transform .12s}
+    .pb-card:hover{transform:translateY(-2px)}
+    .pb-card.warn{border-color:color-mix(in srgb,var(--orange) 50%,var(--line))}
+    .pb-card.danger{border-color:color-mix(in srgb,var(--red) 55%,var(--line))}
+    .pb-card .t{font-size:13px;font-weight:700}
+    .pb-card .h{color:var(--muted);font-size:11px}
+    .pb-card .v{font-size:24px;font-weight:800;letter-spacing:-.02em}
+    .pb-card.warn .v{color:var(--orange)}
+    .pb-card.danger .v{color:var(--red)}
+
+    .pb-section{border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+                background:var(--card);margin-bottom:12px}
+    .pb-section.warn{border-color:color-mix(in srgb,var(--orange) 40%,var(--line))}
+    .pb-section.danger{border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
+    .pb-section h3{margin:0 0 4px;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .pb-section .hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+
+    .pb-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .pb-tbl th,.pb-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .pb-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .pb-tbl tbody tr:hover{background:var(--soft)}
+    .pb-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .pb-tbl a:hover{text-decoration:underline}
+    .pb-meta{color:var(--muted);font-size:11px}
+    .pb-more{color:var(--muted);font-size:12px;text-align:right;margin-top:6px}
+    .pb-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .pb-badge.warn{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .pb-badge.danger{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Проблемные задачи · {{ total_problems }}</h3>
+        <a class="btn gray"
+           href="{% url 'settings_problems' %}?stale_hours={{ stale_hours }}&stale_days={{ stale_days }}&format=csv">
+            Экспорт CSV
+        </a>
+    </div>
+
+    <form method="get" class="pb-filter">
+        <div>
+            <label>Таймер «залип» (часов)</label>
+            <input type="number" name="stale_hours" min="1" value="{{ stale_hours }}">
+        </div>
+        <div>
+            <label>Зависла на статусе (дней)</label>
+            <input type="number" name="stale_days" min="1" value="{{ stale_days }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_problems' %}">Сброс</a>
+        </div>
+    </form>
+
+    <div class="pb-summary">
+        {% for c in categories %}
+        <a class="pb-card {% if c.count %}{{ c.severity }}{% endif %}"
+           href="#cat-{{ c.key }}">
+            <div>
+                <div class="t">{{ c.title }}</div>
+                <div class="h">{% if c.count %}требуют внимания{% else %}проблем нет{% endif %}</div>
+            </div>
+            <div class="v">{{ c.count }}</div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+{% for c in categories %}
+{% if c.count %}
+<div class="pb-section {{ c.severity }}" id="cat-{{ c.key }}">
+    <h3>
+        <span>{{ c.title }}</span>
+        <span class="pb-badge {{ c.severity }}">{{ c.count }}</span>
+    </h3>
+    <p class="hint">{{ c.hint }}</p>
+
+    <table class="pb-tbl">
+        <thead>
+        <tr>
+            <th style="width:60px">ID</th>
+            <th>Задача</th>
+            <th>Статус</th>
+            <th>Исполнитель</th>
+            <th>Срок</th>
+            <th>План, ч</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for t in c.tasks %}
+        <tr>
+            <td>#{{ t.pk }}</td>
+            <td>
+                <a href="/tasks/task/{{ t.pk }}/" target="_blank">{{ t.title|truncatechars:80 }}</a>
+                <div class="pb-meta">
+                    поставил {{ t.requester.full_name|default:'—' }}
+                    {% if t.order %} · заказ {{ t.order.number }}{% endif %}
+                    {% if t.branch %} · ветка {{ t.branch.name }}{% endif %}
+                </div>
+            </td>
+            <td>{{ t.get_status_display }}</td>
+            <td>{{ t.executor.full_name|default:'—' }}</td>
+            <td>
+                {% if t.due %}{{ t.due|date:'d.m.Y' }}{% else %}<span class="pb-meta">нет</span>{% endif %}
+            </td>
+            <td>{{ t.plan_hours|floatformat:1 }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {% if c.count > c.tasks|length %}
+    <div class="pb-more">
+        показано {{ c.tasks|length }} из {{ c.count }} —
+        <a href="{% url 'settings_search' %}">найти все →</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if not total_problems %}
+<div class="card" style="text-align:center;color:var(--muted);padding:36px 0">
+    Проблемных задач нет — все чисто.
+</div>
+{% endif %}
+{% endblock %}

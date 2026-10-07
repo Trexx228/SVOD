@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+    <h2 style="margin:0">Уведомления</h2>
+    <form method="post" action="{% url 'notifications_read' %}" style="margin:0">
+        {% csrf_token %}
+        <button type="submit" class="btn gray" style="padding:8px 16px">Прочитать все</button>
+    </form>
+</div>
+
+<div class="card" style="padding:0">
+    <table>
+        <tbody>
+        {% for n in items %}
+        <tr {% if not n.read %}style="background:var(--softblue)"{% else %}style="opacity:.6"{% endif %}>
+            <td style="white-space:nowrap;color:var(--muted);font-size:12px;width:130px">
+                {{ n.created_at|date:'d.m.Y H:i' }}
+            </td>
+            <td style="width:110px"><span class="badge">{{ n.get_kind_display }}</span></td>
+            <td>
+                <a href="{% url 'notification_open' n.pk %}"
+                   style="{% if n.read %}color:var(--muted);opacity:.7;{% else %}color:var(--ink);{% endif %}text-decoration:none">
+                    {{ n.text }}
+                </a>
+            </td>
+            <td style="width:120px;text-align:right">
+                {% if n.read %}
+                <span class="badge" style="background:var(--soft);color:var(--muted)">прочитано</span>
+                {% else %}
+                <span class="badge">новое</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4" style="color:var(--muted);text-align:center;padding:24px 0">
+                Уведомлений пока нет.
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

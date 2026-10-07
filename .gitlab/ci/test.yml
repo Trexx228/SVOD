@@ -1,0 +1,24 @@
+# ══════════════════════════════════════════════════════════════
+#  Стадия TEST: Django-тесты + покрытие
+# ══════════════════════════════════════════════════════════════
+
+package:docker:
+  stage: package
+  image: docker:27
+  services:
+    - docker:27-dind
+  needs: ["test:django"]
+  variables:
+    DOCKER_BUILDKIT: "1"
+  before_script:
+    - test -f Dockerfile || (echo "Dockerfile не найден — пропускаю сборку" && exit 0)
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+  script:
+    - test -f Dockerfile || exit 0
+    - docker build -t $IMAGE_TAG -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true

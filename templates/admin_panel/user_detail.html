@@ -1,0 +1,482 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Сотрудник · {{ profile_user.full_name }}</h2>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <a class="pill" href="{% url 'settings_users' %}">← Все пользователи</a>
+    <a class="pill" href="{% url 'settings_user_edit' profile_user.pk %}">Редактировать</a>
+    <a class="pill" href="{% url 'settings_logins' %}?q={{ profile_user.email }}">Входы</a>
+    <a class="pill" href="{% url 'settings_sessions' %}?user={{ profile_user.pk }}">Сессии</a>
+    <a class="pill" href="{% url 'settings_tasks_page' %}?executor={{ profile_user.pk }}">Задачи</a>
+    <a class="pill" href="/admin/accounts/user/{{ profile_user.pk }}/change/" target="_blank">Django admin</a>
+</div>
+
+<style>
+    .ud-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+    .ud-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+    .ud-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .ud-stat .v{font-size:22px;font-weight:800;letter-spacing:-.01em}
+    .ud-stat .h{color:var(--muted);font-size:11px}
+    .ud-stat.ok .v{color:var(--green)}
+    .ud-stat.info .v{color:var(--blue)}
+    .ud-stat.warn .v{color:var(--orange)}
+    .ud-stat.danger .v{color:var(--red)}
+
+    .ud-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:900px){.ud-cols{grid-template-columns:1fr}}
+
+    .ud-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .ud-tbl th,.ud-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .ud-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .ud-tbl tbody tr:hover{background:var(--soft)}
+    .ud-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ud-tbl a:hover{text-decoration:underline}
+    .ud-meta{color:var(--muted);font-size:11px}
+    .ud-h{font-weight:800;color:var(--green);white-space:nowrap}
+    .ud-h.act{color:var(--orange)}
+    .ud-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:color-mix(in srgb,var(--gray) 18%,transparent);color:var(--muted)}
+    .ud-pill.on{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .ud-pill.off{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+</style>
+
+<div class="card">
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <span class="u-ava" style="width:48px;height:48px;font-size:18px">{{ profile_user.full_name|slice:':1'|upper }}</span>
+        <div>
+            <div style="font-size:17px;font-weight:800">{{ profile_user.full_name }}</div>
+            <div style="color:var(--muted);font-size:13px">
+                {{ profile_user.email }}
+                {% if profile_user.department %} · {{ profile_user.department.name }}{% endif %}
+                {% if profile_user.role %} · <b>{{ profile_user.role.name }}</b>{% endif %}
+            </div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+            {% if profile_user.is_dismissed %}
+            <span class="ud-pill off" title="{{ profile_user.dismissed_reason }}">уволен {{ profile_user.dismissed_at|date:'d.m.Y' }}</span>
+            {% elif profile_user.employment_status == 'vacation' %}
+            <span class="ud-pill on">отпуск</span>
+            {% elif profile_user.employment_status == 'maternity' %}
+            <span class="ud-pill on">декрет</span>
+            {% elif profile_user.employment_status == 'archived' %}
+            <span class="ud-pill off">архив</span>
+            {% elif profile_user.is_active %}
+            <span class="ud-pill on">активен</span>
+            {% else %}
+            <span class="ud-pill off">отключён</span>
+            {% endif %}
+
+            {% if profile_user.is_superuser %}<span class="ud-pill on">суперюзер</span>{% endif %}
+            {% if profile_user.is_admin_role %}<span class="ud-pill on">админ</span>{% endif %}
+            {% if profile_user.is_boss %}<span class="ud-pill on">руководитель</span>{% endif %}
+        </div>
+    </div>
+
+    {# ═══ ПАНЕЛЬ ДЕЙСТВИЙ ПО СТАТУСУ ═══ #}
+    <div style="background:var(--soft);border:1px solid var(--line);
+                border-radius:12px;padding:14px 16px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap">
+
+            {% if profile_user.is_dismissed %}
+            <div>
+                <b style="color:var(--red)">Сотрудник уволен</b>
+                <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                    {{ profile_user.dismissed_at|date:'d.m.Y' }}
+                    {% if profile_user.dismissed_reason %}
+                    · {{ profile_user.dismissed_reason }}
+                    {% endif %}
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button type="button" class="btn blue" data-reassign-open>
+                    📋 Переназначить задачи
+                </button>
+                <form method="post"
+                      action="{% url 'settings_user_restore' profile_user.pk %}"
+                      id="restore-form"
+                      style="margin:0">
+                    {% csrf_token %}
+                    <button type="button" class="btn green" data-restore-open>↺ Вернуть из увольнения</button>
+                </form>
+            </div>
+
+            {% elif profile_user.is_active %}
+            <div>
+                <b>Статус: работает</b>
+                <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                    Заходил: {{ profile_user.last_activity_at|date:'d.m.Y H:i'|default:'—' }}
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <form method="post"
+                      action="{% url 'settings_user_dismiss' profile_user.pk %}"
+                      id="dismiss-form"
+                      style="margin:0">
+                    {% csrf_token %}
+                    <input type="hidden" name="dismissed_at" id="dismiss-date">
+                    <input type="hidden" name="reason" id="dismiss-reason">
+                    <button type="button" class="btn red" data-dismiss-open>
+                        🚪 Уволить
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ═══ ОТКРЫТЫЕ ЗАДАЧИ УВОЛЕННОГО ═══ #}
+    {% if profile_user.is_dismissed %}
+    {% with open_tasks=profile_user.open_tasks %}
+    {% if open_tasks %}
+    <div style="border-left:4px solid var(--orange);background:color-mix(in srgb,var(--orange) 6%,var(--soft));
+                border-radius:12px;padding:14px 16px;margin-bottom:14px">
+        <b>⚠ Открытых задач: {{ open_tasks|length }}</b>
+        <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">
+            Их нужно переназначить на другого сотрудника.
+        </p>
+        <table class="ud-tbl">
+            <thead><tr><th>Задача</th><th>Статус</th><th>Срок</th></tr></thead>
+            <tbody>
+            {% for t in open_tasks|slice:":10" %}
+            <tr>
+                <td><a href="{% url 'task_detail' t.pk %}">#{{ t.pk }} · {{ t.title|truncatechars:50 }}</a></td>
+                <td>{{ t.get_status_display }}</td>
+                <td>{% if t.due %}{{ t.due|date:'d.m.Y' }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% if open_tasks|length > 10 %}
+        <p style="color:var(--muted);font-size:12px;margin-top:8px">
+            …и ещё {{ open_tasks|length|add:"-10" }}.
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+
+    {% if active_task or active_shop %}
+    <div style="background:color-mix(in srgb,var(--green) 10%,var(--soft));border:1px solid color-mix(in srgb,var(--green) 40%,var(--line));border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+        <b>Сейчас работает:</b>
+        {% if active_task %}
+        задача <a href="/tasks/task/{{ active_task.pk }}/" target="_blank">#{{ active_task.pk }} · {{ active_task.title|truncatechars:60 }}</a>
+        {% endif %}
+        {% if active_shop %}
+        · выход в цех с {{ active_shop.started_at|date:'H:i' }} (задача #{{ active_shop.task.pk }})
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="ud-grid">
+        <div class="ud-stat info">
+            <div class="l">Всего задач</div>
+            <div class="v">{{ task_stats.total }}</div>
+            <div class="h">поставил: {{ task_stats.issued }}</div>
+        </div>
+        <div class="ud-stat info">
+            <div class="l">В работе</div>
+            <div class="v">{{ task_stats.in_progress }}</div>
+            <div class="h">на проверке: {{ task_stats.review }}</div>
+        </div>
+        <div class="ud-stat ok">
+            <div class="l">Готово</div>
+            <div class="v">{{ task_stats.done }}</div>
+            <div class="h">за месяц: {{ task_stats.done_month }}</div>
+        </div>
+        <div class="ud-stat {% if task_stats.overdue %}danger{% endif %}">
+            <div class="l">Просрочено</div>
+            <div class="v">{{ task_stats.overdue }}</div>
+            <div class="h">на доработке: {{ task_stats.rework }}</div>
+        </div>
+        <div class="ud-stat">
+            <div class="l">Работа, ч</div>
+            <div class="v">{{ work_hours_total|floatformat:1 }}</div>
+            <div class="h">за месяц: {{ work_hours_month|floatformat:1 }}</div>
+        </div>
+        <div class="ud-stat">
+            <div class="l">Цех, ч</div>
+            <div class="v">{{ shop_hours_total|floatformat:1 }}</div>
+            <div class="h">за месяц: {{ shop_hours_month|floatformat:1 }}</div>
+        </div>
+        <div class="ud-stat ok">
+            <div class="l">Успешных входов</div>
+            <div class="v">{{ logins_total }}</div>
+        </div>
+        <div class="ud-stat {% if logins_failed %}warn{% endif %}">
+            <div class="l">Отказов входа</div>
+            <div class="v">{{ logins_failed }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="ud-cols">
+    <div class="card">
+        <h3 style="margin:0 0 10px">Последние задачи (исполнитель)</h3>
+        <table class="ud-tbl">
+            <thead><tr><th>Задача</th><th>Статус</th><th>Срок</th><th>План, ч</th></tr></thead>
+            <tbody>
+            {% for t in last_tasks %}
+            <tr>
+                <td>
+                    <a href="/tasks/task/{{ t.pk }}/" target="_blank">#{{ t.pk }} · {{ t.title|truncatechars:45 }}</a>
+                    <div class="ud-meta">от {{ t.requester.full_name|default:'—' }}
+                        {% if t.order %} · заказ {{ t.order.number }}{% endif %}</div>
+                </td>
+                <td><span class="ud-pill">{{ t.get_status_display }}</span></td>
+                <td>{% if t.due %}{{ t.due|date:'d.m.Y' }}{% else %}—{% endif %}</td>
+                <td>{{ t.plan_hours|floatformat:1 }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="4" class="ud-meta" style="padding:14px">Нет задач.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Последние сессии работы</h3>
+        <table class="ud-tbl">
+            <thead><tr><th>Завершено</th><th>Задача</th><th>Часов</th></tr></thead>
+            <tbody>
+            {% for s in last_work_sessions %}
+            <tr>
+                <td style="white-space:nowrap">{{ s.finished_at|date:'d.m H:i' }}</td>
+                <td><a href="/tasks/task/{{ s.task.pk }}/" target="_blank">#{{ s.task.pk }} · {{ s.task.title|truncatechars:35 }}</a></td>
+                <td class="ud-h">{{ s.duration_hours|floatformat:2 }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" class="ud-meta" style="padding:14px">Нет сессий.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Последние задачи (постановщик)</h3>
+        <table class="ud-tbl">
+            <thead><tr><th>Задача</th><th>Исполнитель</th><th>Статус</th></tr></thead>
+            <tbody>
+            {% for t in last_issued %}
+            <tr>
+                <td><a href="/tasks/task/{{ t.pk }}/" target="_blank">#{{ t.pk }} · {{ t.title|truncatechars:45 }}</a></td>
+                <td>{{ t.executor.full_name|default:'—' }}</td>
+                <td><span class="ud-pill">{{ t.get_status_display }}</span></td>
+            </tr>
+            {% empty %}<tr><td colspan="3" class="ud-meta" style="padding:14px">Ничего не выдавал.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Последние сессии в цехе</h3>
+        <table class="ud-tbl">
+            <thead><tr><th>Выход</th><th>Задача</th><th>Часов</th></tr></thead>
+            <tbody>
+            {% for s in last_shop_sessions %}
+            <tr>
+                <td style="white-space:nowrap">{{ s.started_at|date:'d.m H:i' }}</td>
+                <td><a href="/tasks/task/{{ s.task.pk }}/" target="_blank">#{{ s.task.pk }} · {{ s.task.title|truncatechars:35 }}</a></td>
+                <td class="ud-h {% if not s.finished_at %}act{% endif %}">
+                    {% if s.finished_at %}{{ s.duration_hours|floatformat:2 }}{% else %}активен{% endif %}
+                </td>
+            </tr>
+            {% empty %}<tr><td colspan="3" class="ud-meta" style="padding:14px">Нет сессий.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Последние входы</h3>
+        <table class="ud-tbl">
+            <thead><tr><th>Когда</th><th>Результат</th><th>IP</th></tr></thead>
+            <tbody>
+            {% for l in logins %}
+            <tr>
+                <td style="white-space:nowrap">{{ l.created_at|date:'d.m.Y H:i' }}</td>
+                <td>{% if l.success %}<span class="ud-pill on">ок</span>{% else %}<span class="ud-pill off">отказ</span>{% endif %}</td>
+                <td class="ud-meta">{{ l.ip|default:'—' }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" class="ud-meta" style="padding:14px">Записей нет.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px">Действия в админке</h3>
+        <table class="ud-tbl">
+            <thead><tr><th>Когда</th><th>Действие</th><th>Объект</th></tr></thead>
+            <tbody>
+            {% for a in audit %}
+            <tr>
+                <td style="white-space:nowrap">{{ a.created_at|date:'d.m H:i' }}</td>
+                <td><span class="ud-pill">{{ a.get_action_display }}</span></td>
+                <td>{{ a.target_model }} · {{ a.target_repr|truncatechars:40 }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" class="ud-meta" style="padding:14px">Нет действий.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ═══ МОДАЛ «УВОЛИТЬ» ═══ #}
+<div id="dismiss-modal" style="display:none;position:fixed;inset:0;z-index:200;
+     background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;
+              padding:26px 30px;border:1px solid var(--line)">
+        <h3 style="margin:0 0 12px">Уволить сотрудника</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+            {{ profile_user.full_name }} · {{ profile_user.email }}<br>
+            Открытые задачи останутся в системе, но их нужно будет переназначить.
+        </p>
+
+        <label>Дата увольнения</label>
+        <input type="date" id="dismiss-date-input" value="{% now 'Y-m-d' %}">
+
+        <label>Причина (опционально)</label>
+        <input type="text" id="dismiss-reason-input" maxlength="200"
+               placeholder="Например: по собственному желанию">
+
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button type="button" class="btn red" id="dismiss-confirm"
+                    style="flex:1">Уволить</button>
+            <button type="button" class="btn gray" id="dismiss-cancel"
+                    style="flex:1">Отмена</button>
+        </div>
+    </div>
+</div>
+
+{# ═══ МОДАЛ «ПЕРЕНАЗНАЧИТЬ ЗАДАЧИ» ═══ #}
+<div id="reassign-modal" style="display:none;position:fixed;inset:0;z-index:200;
+     background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;
+              padding:26px 30px;border:1px solid var(--line)">
+        <h3 style="margin:0 0 12px">Переназначить задачи</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+            Все открытые задачи с <b>{{ profile_user.full_name }}</b>
+            будут переведены на выбранного сотрудника.
+        </p>
+
+        <form method="post"
+              action="{% url 'settings_user_reassign_tasks' profile_user.pk %}">
+            {% csrf_token %}
+            <label>Новый исполнитель</label>
+            <select name="to_user" required>
+                <option value="">— выберите —</option>
+                {% for u in all_active_users %}
+                {% if u.pk != profile_user.pk %}
+                <option value="{{ u.pk }}">
+                    {{ u.full_name }}{% if u.department %} · {{ u.department.name }}{% endif %}
+                </option>
+                {% endif %}
+                {% endfor %}
+            </select>
+
+            <div style="display:flex;gap:10px;margin-top:20px">
+                <button type="submit" class="btn green" style="flex:1">
+                    Переназначить
+                </button>
+                <button type="button" class="btn gray" id="reassign-cancel"
+                        style="flex:1">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ═══ МОДАЛ «ВЕРНУТЬ ИЗ УВОЛЬНЕНИЯ» ═══ #}
+<div id="restore-modal" style="display:none;position:fixed;inset:0;z-index:200;
+     background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px">
+    <div style="background:var(--card);border-radius:18px;max-width:480px;width:100%;
+              padding:26px 30px;border:1px solid var(--line)">
+        <h3 style="margin:0 0 12px">Вернуть сотрудника в работу?</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+            <b>{{ profile_user.full_name }}</b> · {{ profile_user.email }}<br>
+            Сотрудник снова получит доступ к системе и появится во всех списках.
+            Открытые задачи останутся за ним.
+        </p>
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button type="button" class="btn green" id="restore-confirm"
+                    style="flex:1">Вернуть в работу</button>
+            <button type="button" class="btn gray" id="restore-cancel"
+                    style="flex:1">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+      var dismissBtn = document.querySelector('[data-dismiss-open]');
+      var dismissModal = document.getElementById('dismiss-modal');
+      var dismissConfirm = document.getElementById('dismiss-confirm');
+      var dismissCancel = document.getElementById('dismiss-cancel');
+
+      if (dismissBtn && dismissModal) {
+        dismissBtn.addEventListener('click', function(){
+          dismissModal.style.display = 'flex';
+        });
+        dismissCancel.addEventListener('click', function(){
+          dismissModal.style.display = 'none';
+        });
+        dismissConfirm.addEventListener('click', function(){
+          var d = document.getElementById('dismiss-date-input').value;
+          var r = document.getElementById('dismiss-reason-input').value;
+          document.getElementById('dismiss-date').value = d;
+          document.getElementById('dismiss-reason').value = r;
+          document.getElementById('dismiss-form').submit();
+        });
+        dismissModal.addEventListener('click', function(e){
+          if (e.target === dismissModal) dismissModal.style.display = 'none';
+        });
+      }
+
+      var reassignBtn = document.querySelector('[data-reassign-open]');
+      var reassignModal = document.getElementById('reassign-modal');
+      var reassignCancel = document.getElementById('reassign-cancel');
+
+      if (reassignBtn && reassignModal) {
+        reassignBtn.addEventListener('click', function(){
+          reassignModal.style.display = 'flex';
+        });
+        reassignCancel.addEventListener('click', function(){
+          reassignModal.style.display = 'none';
+        });
+        reassignModal.addEventListener('click', function(e){
+          if (e.target === reassignModal) reassignModal.style.display = 'none';
+        });
+      }
+
+  // ── Возврат из увольнения ──
+  var restoreBtn = document.querySelector('[data-restore-open]');
+  var restoreModal = document.getElementById('restore-modal');
+  var restoreConfirm = document.getElementById('restore-confirm');
+  var restoreCancel = document.getElementById('restore-cancel');
+
+  if (restoreBtn && restoreModal) {
+    restoreBtn.addEventListener('click', function(){
+      restoreModal.style.display = 'flex';
+    });
+    restoreCancel.addEventListener('click', function(){
+      restoreModal.style.display = 'none';
+    });
+    restoreConfirm.addEventListener('click', function(){
+      document.getElementById('restore-form').submit();
+    });
+    restoreModal.addEventListener('click', function(e){
+      if (e.target === restoreModal) restoreModal.style.display = 'none';
+    });
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      if (dismissModal) dismissModal.style.display = 'none';
+      if (reassignModal) reassignModal.style.display = 'none';
+      if (restoreModal) restoreModal.style.display = 'none';
+    }
+  });
+    })();
+</script>
+{% endblock %}

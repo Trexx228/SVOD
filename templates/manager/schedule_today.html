@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Кто работает сегодня" %}
+
+<style>
+    .st-tiles{
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+        gap:10px;margin-bottom:18px;
+    }
+    .st-tile{
+        background:var(--soft);border:1px solid var(--line);
+        border-radius:12px;padding:12px 14px;text-decoration:none;color:inherit;
+        transition:transform .12s,border-color .12s;
+    }
+    .st-tile:hover{transform:translateY(-1px);border-color:var(--blue)}
+    .st-tile.on{border-color:var(--blue);background:var(--softblue)}
+    .st-tile .l{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .st-tile .v{font-size:24px;font-weight:800;margin-top:2px}
+    .st-tile.ok .v{color:var(--green)}
+    .st-tile.mut .v{color:var(--muted)}
+    .st-tile.info .v{color:var(--blue)}
+    .st-tile .h{color:var(--muted);font-size:11px;margin-top:2px}
+
+    .st-filter{
+        display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+        margin-bottom:14px;
+    }
+    .st-filter select{
+        max-width:280px;padding:7px 10px;font-size:13px;margin:0;
+    }
+
+    .st-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .st-tbl th,.st-tbl td{
+        padding:8px 10px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:middle;
+    }
+    .st-tbl th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .st-tbl tbody tr:hover{background:var(--soft)}
+    .st-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .st-tbl a:hover{text-decoration:underline}
+
+    .st-state{
+        display:inline-flex;align-items:center;gap:6px;font-weight:700;
+        font-size:12px;
+    }
+    .st-state.work{color:var(--green)}
+    .st-state.off {color:var(--muted)}
+
+    .st-src{
+        display:inline-block;padding:2px 8px;border-radius:999px;
+        font-size:11px;font-weight:700;white-space:nowrap;
+    }
+    .st-src.personal  {background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .st-src.department{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .st-src.builtin   {background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+
+    .st-empty{
+        text-align:center;color:var(--muted);padding:36px 0;
+    }
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+            <h3 style="margin:0">Кто работает сегодня · {{ today|date:'d.m.Y' }}</h3>
+            <p style="color:var(--muted);font-size:13px;margin:4px 0 0">
+                График каждого сотрудника: личный → отдела → встроенный 5/2.
+                При включённом «производственном календаре» праздники РФ
+                переопределяют паттерн.
+            </p>
+        </div>
+        <a class="pill" href="{% url 'manager_schedules' %}">← Все графики</a>
+    </div>
+
+    <div class="st-tiles">
+        <a class="st-tile info {% if not state_filter and not dept_filter %}on{% endif %}"
+           href="{% url 'manager_schedule_today' %}">
+            <div class="l">Всего в смене</div>
+            <div class="v">{{ total }}</div>
+            <div class="h">активных сотрудников</div>
+        </a>
+        <a class="st-tile ok {% if state_filter == 'working' %}on{% endif %}"
+           href="?state=working{% if dept_filter %}&dept={{ dept_filter }}{% endif %}">
+            <div class="l">Работает</div>
+            <div class="v">{{ working }}</div>
+            <div class="h">по графику сегодня</div>
+        </a>
+        <a class="st-tile mut {% if state_filter == 'off' %}on{% endif %}"
+           href="?state=off{% if dept_filter %}&dept={{ dept_filter }}{% endif %}">
+            <div class="l">Отдыхает</div>
+            <div class="v">{{ off }}</div>
+            <div class="h">выходной / праздник</div>
+        </a>
+        <a class="st-tile {% if state_filter == 'vacation' %}on{% endif %}"
+           href="?state=vacation{% if dept_filter %}&dept={{ dept_filter }}{% endif %}"
+           style="{% if on_vacation_count %}border-color:color-mix(in srgb,var(--orange) 55%,var(--line)){% endif %}">
+            <div class="l">В отпуске</div>
+            <div class="v" style="color:var(--orange)">{{ on_vacation_count }}</div>
+            <div class="h">отпуск / больничный</div>
+        </a>
+        <div class="st-tile">
+            <div class="l">Личный график</div>
+            <div class="v">{{ by_personal }}</div>
+        </div>
+        <div class="st-tile">
+            <div class="l">График отдела</div>
+            <div class="v">{{ by_department }}</div>
+        </div>
+        <div class="st-tile">
+            <div class="l">Встроенный 5/2</div>
+            <div class="v">{{ by_builtin }}</div>
+        </div>
+    </div>
+
+    <form method="get" class="st-filter">
+        {% if state_filter %}<input type="hidden" name="state" value="{{ state_filter }}">{% endif %}
+        <label style="margin:0;font-size:13px;color:var(--muted)">Отдел:</label>
+        <select name="dept" onchange="this.form.submit()" style="margin:0">
+            <option value="">— все отделы —</option>
+            {% for d in departments %}
+            <option value="{{ d.pk }}" {% if dept_filter == d.pk %}selected{% endif %}>
+                {{ d.name }}
+            </option>
+            {% endfor %}
+        </select>
+        {% if dept_filter or state_filter %}
+        <a class="pill" href="{% url 'manager_schedule_today' %}">Сбросить</a>
+        {% endif %}
+    </form>
+
+    {% if rows %}
+    <div style="overflow-x:auto">
+        <table class="st-tbl">
+            <thead>
+            <tr>
+                <th>Сотрудник</th>
+                <th>Отдел</th>
+                <th>Роль</th>
+                <th>График</th>
+                <th>Сегодня</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <a href="{% url 'manager_person' r.user.pk %}">
+                        {{ r.user.full_name }}
+                    </a>
+                </td>
+                <td style="color:var(--muted)">
+                    {{ r.user.department.name|default:'—' }}
+                </td>
+                <td style="color:var(--muted)">
+                    {{ r.user.role.name|default:'—' }}
+                </td>
+                <td>
+                    <span class="st-src {{ r.schedule_source }}">
+                        {{ r.schedule_label }}
+                    </span>
+                </td>
+                <td>
+                    {% if r.on_vacation %}
+                    <span class="st-state" style="color:var(--orange)">
+                        <span style="display:inline-block;width:8px;height:8px;
+                                     border-radius:999px;background:var(--orange)"></span>
+                        🌴 В отпуске
+                    </span>
+                    {% if r.vacation_label %}
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px">
+                        {{ r.vacation_label }}
+                    </div>
+                    {% endif %}
+                    {% elif r.is_working %}
+                    <span class="st-state work">
+                        <span style="display:inline-block;width:8px;height:8px;
+                                     border-radius:999px;background:var(--green)"></span>
+                        Работает
+                    </span>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px">
+                        {{ r.day_name }}
+                    </div>
+                    {% else %}
+                    <span class="st-state off">
+                        <span style="display:inline-block;width:8px;height:8px;
+                                     border-radius:999px;background:var(--gray)"></span>
+                        Отдыхает
+                    </span>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px">
+                        {{ r.day_name }}
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="st-empty">
+        Никого не нашли по текущим фильтрам.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

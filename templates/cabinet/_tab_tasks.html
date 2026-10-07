@@ -1,0 +1,131 @@
+<style>
+    .mt-filter{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;
+               gap:10px;align-items:end;margin-bottom:14px}
+    @media(max-width:900px){.mt-filter{grid-template-columns:1fr 1fr 1fr}}
+    .mt-filter label{margin:0 0 4px}
+
+    .mt-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .mt-tbl th,.mt-tbl td{padding:8px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .mt-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .mt-tbl tbody tr:hover{background:var(--soft)}
+    .mt-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .mt-tbl a:hover{text-decoration:underline}
+    .mt-over{color:var(--red);font-weight:700}
+    .mt-meta{color:var(--muted);font-size:11px}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;
+           margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Мои задачи · {{ total }}</h3>
+    </div>
+
+    <form method="get" class="mt-filter">
+        <input type="hidden" name="tab" value="tasks">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="Заголовок или тело">
+        </div>
+        <div>
+            <label>Статус</label>
+            <select name="status">
+                <option value="">— любой —</option>
+                {% for code, label in status_choices %}
+                <option value="{{ code }}" {% if status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Приоритет</label>
+            <select name="priority">
+                <option value="">— любой —</option>
+                {% for code, label in priority_choices %}
+                <option value="{{ code }}" {% if priority == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Срок с</label>
+            <input type="date" name="due_from" value="{{ due_from }}">
+        </div>
+        <div>
+            <label>Срок по</label>
+            <input type="date" name="due_to" value="{{ due_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="mt-tbl">
+            <thead>
+            <tr>
+                <th style="width:60px">ID</th>
+                <th>Задача</th>
+                <th>Статус</th>
+                <th>Приоритет</th>
+                <th>Срок</th>
+                <th>План, ч</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for t in page %}
+            <tr>
+                <td>#{{ t.pk }}</td>
+                <td>
+                    <a href="/tasks/task/{{ t.pk }}/">{{ t.title|truncatechars:80 }}</a>
+                    {% if t.pk in overtime_task_ids %}
+                    <span style="display:inline-block;padding:1px 8px;
+                                 border-radius:999px;margin-left:6px;
+                                 background:color-mix(in srgb,var(--orange) 22%,transparent);
+                                 color:var(--orange);font-size:11px;font-weight:800"
+                          title="По этой задаче есть сверхурочные">
+                        🚨 сверхурочная
+                    </span>
+                    {% endif %}
+                    <div class="mt-meta">
+                        поставил {{ t.requester.full_name|default:'—' }}
+                        {% if t.order %} · заказ {{ t.order.number }}{% endif %}
+                        {% if t.branch %} · ветка {{ t.branch.name }}{% endif %}
+                        {% if t.executor.is_dismissed %}
+                        · <span style="color:var(--orange);font-weight:700">⚠ исполнитель уволен</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>{{ t.get_status_display }}</td>
+                <td>{{ t.get_priority_display }}</td>
+                <td>
+                    {% if t.due %}
+                    {% if t.due < today and t.status != 'done' and t.status != 'cancelled' %}
+                    <span class="mt-over">{{ t.due|date:'d.m.Y' }}</span>
+                    {% else %}{{ t.due|date:'d.m.Y' }}{% endif %}
+                    {% else %}—{% endif %}
+                </td>
+                <td>{{ t.plan_hours|floatformat:1 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px 0">
+                Задач по фильтрам нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?tab=tasks{% if page_qs %}&{{ page_qs }}{% endif %}&page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?tab=tasks{% if page_qs %}&{{ page_qs }}{% endif %}&page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

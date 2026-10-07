@@ -1,0 +1,26 @@
+# ══════════════════════════════════════════════════════════════
+#  Стадия DEPLOY: развёртывание на сервере предприятия
+#
+#  Стратегия (когда дойдём):
+#    1. На сервере стоит runner с тегом 'svod-prod'.
+#    2. Deploy — docker pull образа из registry + docker compose up -d.
+#    3. Или ansible-плейбук.
+#
+#  Сейчас — manual-заглушка. Ничего не ломает.
+# ══════════════════════════════════════════════════════════════
+
+deploy:staging:
+  stage: deploy
+  image: alpine:latest
+  needs: ["test:django"]
+  before_script:
+    - echo "TODO: заменить на реальный деплой"
+  script:
+    - echo "Здесь будет деплой на staging"
+    - echo "Образ: $IMAGE_TAG"
+  environment:
+    name: staging
+    url: https://staging.svod.local
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual

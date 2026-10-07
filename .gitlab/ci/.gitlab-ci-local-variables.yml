@@ -1,0 +1,5 @@
+CI_REGISTRY: registry.gitlab.com
+CI_REGISTRY_IMAGE: registry.gitlab.com/user/my-project
+CI_REGISTRY_USER: ${CI_REGISTRY_USER}
+CI_REGISTRY_PASSWORD: ${CI_REGISTRY_PASSWORD}
+CI_DEFAULT_BRANCH: main

@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+{% include 'admin_panel/_redirect_notice.html' with cabinet_url='/manager/logs/' %}
+{% if is_narrow_scope %}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 40%,var(--line));
+            margin-bottom:14px;padding:10px 16px;font-size:13px">
+    Показаны данные только по вашему подразделению:
+    <b>{{ scope_department.name }}</b>.
+</div>
+{% endif %}
+
+<style>
+    .tl-filter{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto;
+               gap:10px;align-items:end;margin-bottom:14px}
+    @media(max-width:1100px){.tl-filter{grid-template-columns:1fr 1fr 1fr}}
+    @media(max-width:640px){.tl-filter{grid-template-columns:1fr}}
+    .tl-filter label{margin:0 0 4px}
+
+    .tl-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .tl-stat{padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+             background:var(--soft);font-size:12px;font-weight:700;
+             text-decoration:none;color:var(--ink);cursor:pointer}
+    .tl-stat:hover{background:var(--softblue)}
+    .tl-stat.on{border-color:var(--blue);background:var(--softblue);color:var(--blue)}
+    .tl-stat .n{color:var(--muted);font-weight:600;margin-left:6px}
+
+    .tl-table{width:100%;border-collapse:collapse;font-size:13px}
+    .tl-table th,.tl-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:top}
+    .tl-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .tl-table tbody tr:hover{background:var(--soft)}
+    .tl-table a{color:var(--blue);text-decoration:none;font-weight:600}
+    .tl-table a:hover{text-decoration:underline}
+    .tl-meta{color:var(--muted);font-size:11px;margin-top:2px}
+    .tl-kind{display:inline-block;padding:2px 8px;border-radius:999px;
+             font-size:11px;font-weight:700;white-space:nowrap}
+    .tl-kind.rework{background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)}
+    .tl-kind.accept{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .tl-kind.close{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .tl-kind.plan{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .tl-kind.due{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .tl-kind.prio{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .tl-kind.cancel{background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;
+           margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Журнал задач · {{ total }}</h3>
+        <a class="btn gray"
+           href="{% url 'settings_task_logs' %}{% if page_qs %}?{{ page_qs }}&format=csv{% else %}?format=csv{% endif %}">
+            Экспорт CSV
+        </a>
+    </div>
+
+    {% if kind_stats %}
+    <div class="tl-stats">
+        <a class="tl-stat {% if not kind %}on{% endif %}" href="?{% if page_qs %}{{ page_qs }}{% endif %}">
+            Все <span class="n">{{ total }}</span>
+        </a>
+        {% for s in kind_stats %}
+        <a class="tl-stat {% if kind == s.code %}on{% endif %}"
+           href="?kind={{ s.code }}">
+            {{ s.label }} <span class="n">{{ s.count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="get" class="tl-filter">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="Комментарий, задача, автор">
+        </div>
+        <div>
+            <label>Событие</label>
+            <select name="kind">
+                <option value="">— любое —</option>
+                {% for code, label in kind_choices %}
+                <option value="{{ code }}" {% if kind == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Автор</label>
+            <select name="author">
+                <option value="">— любой —</option>
+                {% for u in users %}
+                <option value="{{ u.pk }}" {% if author_pk == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>ID задачи</label>
+            <input name="task" value="{{ task_pk }}" placeholder="42">
+        </div>
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_task_logs' %}">Сброс</a>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table class="tl-table">
+            <thead>
+            <tr>
+                <th style="white-space:nowrap">Когда</th>
+                <th>Автор</th>
+                <th>Событие</th>
+                <th>Задача</th>
+                <th>Комментарий</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for log in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ log.created_at|date:'d.m.Y H:i:s' }}</td>
+                <td>
+                    {% if log.author %}
+                    <b>{{ log.author.full_name }}</b>
+                    <div class="tl-meta">{{ log.author.email }}</div>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <span class="tl-kind {{ log.kind }}">{{ log.get_kind_display }}</span>
+                    {% if log.shift_days is not None %}
+                    <div class="tl-meta">
+                        сдвиг: {% if log.shift_days > 0 %}+{% endif %}{{ log.shift_days }} дн
+                        {% if log.source_task %} · от <a href="/tasks/task/{{ log.source_task.pk }}/" target="_blank">#{{ log.source_task.pk }}</a>{% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if log.task %}
+                    <a href="/tasks/task/{{ log.task.pk }}/" target="_blank">#{{ log.task.pk }} · {{ log.task.title|truncatechars:60 }}</a>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--muted);max-width:380px">{{ log.comment|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px 0">
+                Записей по фильтрам нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

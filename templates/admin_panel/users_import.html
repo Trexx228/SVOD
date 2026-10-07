@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .imp-table{width:100%;border-collapse:collapse;font-size:13px}
+    .imp-table th,.imp-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                                 text-align:left;vertical-align:top}
+    .imp-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                  letter-spacing:.4px;font-weight:700}
+    .imp-status{display:inline-block;padding:2px 8px;border-radius:999px;
+                font-size:11px;font-weight:700}
+    .imp-status.create{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .imp-status.update{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .imp-status.skip{background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+    .imp-status.error{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+</style>
+
+{% if stage == 'upload' %}
+<div class="card" style="max-width:720px">
+    <h3 style="margin:0 0 12px">Импорт пользователей из CSV</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+        Файл с разделителем «;» или «,», в кодировке UTF-8 или CP1251.
+        Обязательные колонки: <b>ФИО</b>, <b>Email</b>. Опционально:
+        <b>Подразделение</b> (по названию), <b>Роль</b> (по коду), <b>Активен</b> (да/нет).
+        Совместим с файлом из «Экспорт CSV».
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label>Файл CSV</label>
+        <input type="file" name="csv_file" accept=".csv,text/csv" required>
+
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+            <input type="radio" name="mode" value="create_only" checked style="width:auto">
+            Только создавать новых (существующих пропускать)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px">
+            <input type="radio" name="mode" value="update" style="width:auto">
+            Создавать и обновлять существующих (по email)
+        </label>
+
+        <p style="margin-top:18px">
+            <button type="submit" class="btn blue">Проверить файл</button>
+            <a class="pill" href="{% url 'settings_users' %}" style="margin-left:8px">Отмена</a>
+        </p>
+    </form>
+</div>
+
+{% elif stage == 'preview' %}
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+        <h3 style="margin:0">Проверка файла</h3>
+        <div style="display:flex;gap:8px">
+            <span class="pill">Всего: <b>{{ total }}</b></span>
+            <span class="pill" style="color:var(--green)">Создать: {{ report.create }}</span>
+            <span class="pill" style="color:var(--blue)">Обновить: {{ report.update }}</span>
+            <span class="pill" style="color:var(--muted)">Пропустить: {{ report.skip }}</span>
+            <span class="pill" style="color:var(--red)">Ошибок: {{ report.error }}</span>
+        </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+        Режим: <b>{% if mode == 'update' %}создавать и обновлять{% else %}только создавать{% endif %}</b>.
+        Строки со статусом «ошибка» и «пропуск» применены не будут.
+    </p>
+
+    <div style="overflow-x:auto;max-height:60vh">
+        <table class="imp-table">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Статус</th>
+                <th>ФИО</th>
+                <th>Email</th>
+                <th>Подразделение</th>
+                <th>Роль</th>
+                <th>Активен</th>
+                <th>Примечание</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>{{ r.row_num }}</td>
+                <td><span class="imp-status {{ r.status }}">{{ r.status }}</span></td>
+                <td>{{ r.full_name }}</td>
+                <td>{{ r.email }}</td>
+                <td>{{ r.department_name|default:'—' }}</td>
+                <td>{{ r.role_code|default:'—' }}</td>
+                <td>{% if r.is_active is None %}—{% elif r.is_active %}да{% else %}нет{% endif %}</td>
+                <td style="color:var(--muted)">{{ r.message|default:'' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" action="{% url 'settings_users_import_apply' %}" style="margin-top:16px">
+        {% csrf_token %}
+        <button type="submit" class="btn green"
+                onclick="return confirm('Применить импорт?');">
+            Применить импорт
+        </button>
+        <a class="pill" href="{% url 'settings_users_import' %}" style="margin-left:8px">Загрузить другой файл</a>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

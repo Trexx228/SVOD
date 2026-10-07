@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Поиск: {{ q }}</h2>
+{% if q|length < 2 %}
+<p style="color:var(--muted)">Введите минимум 2 символа.</p>
+{% else %}
+<div class="card"><h3>Задачи</h3>
+    {% for t in tasks %}<p style="margin:6px 0"><a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a>
+        <span class="badge">{{ t.get_status_display }}</span>
+        <span style="color:var(--muted);font-size:13px">→ {{ t.executor.full_name }}</span></p>
+    {% empty %}<p style="color:var(--muted)">Ничего не найдено.</p>{% endfor %}
+</div>
+<div class="card"><h3>Люди</h3>
+    {% for p in people %}<p style="margin:6px 0">{{ p.full_name }}
+        <span style="color:var(--muted);font-size:13px">· {{ p.department|default:'—' }}</span></p>
+    {% empty %}<p style="color:var(--muted)">Никого не нашли.</p>{% endfor %}
+</div>
+<div class="card"><h3>Заказы</h3>
+    {% for o in orders %}<p style="margin:6px 0">{{ o.number }} · {{ o.product }}</p>
+    {% empty %}<p style="color:var(--muted)">Заказов не нашли.</p>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Загруженность отдела" %}
+
+<style>
+    .ld-tiles{
+        display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+        gap:10px;margin-bottom:18px;
+    }
+    .ld-tile{
+        background:var(--soft);border:1px solid var(--line);
+        border-radius:12px;padding:12px 14px;
+    }
+    .ld-tile .l{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .ld-tile .v{font-size:24px;font-weight:800;margin-top:2px}
+    .ld-tile .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .ld-tile.danger .v{color:var(--red)}
+    .ld-tile.ok .v{color:var(--green)}
+    .ld-tile.info .v{color:var(--blue)}
+    .ld-tile.muted .v{color:var(--muted)}
+
+    .ld-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .ld-tbl th,.ld-tbl td{
+        padding:9px 12px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:middle;
+    }
+    .ld-tbl th{
+        color:var(--muted);font-size:11px;text-transform:uppercase;
+        letter-spacing:.4px;font-weight:700;
+    }
+    .ld-tbl tbody tr:hover{background:var(--soft)}
+    .ld-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ld-tbl a:hover{text-decoration:underline}
+    .ld-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+
+    .ld-bar{
+        display:flex;align-items:center;gap:8px;min-width:160px;
+    }
+    .ld-bar-wrap{
+        flex:1;height:8px;border-radius:999px;
+        background:color-mix(in srgb,var(--line) 70%,transparent);overflow:hidden;
+    }
+    .ld-bar-wrap > i{
+        display:block;height:100%;border-radius:999px;
+        transition:width .2s;
+    }
+    .ld-bar-wrap > i.under{background:var(--blue)}
+    .ld-bar-wrap > i.ok   {background:var(--green)}
+    .ld-bar-wrap > i.over {background:var(--red)}
+    .ld-bar-wrap > i.empty{background:var(--muted);width:0 !important}
+    .ld-bar-pct{font-weight:700;font-size:13px;min-width:48px;text-align:right}
+
+    .ld-badge{
+        display:inline-block;padding:2px 8px;border-radius:999px;
+        font-size:11px;font-weight:700;white-space:nowrap;
+    }
+    .ld-badge.over {background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)}
+    .ld-badge.under{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .ld-badge.ok   {background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .ld-badge.empty{background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+
+    .ld-note{
+        background:color-mix(in srgb,var(--blue) 6%,var(--soft));
+        border:1px solid color-mix(in srgb,var(--blue) 30%,var(--line));
+        border-radius:12px;padding:10px 14px;font-size:13px;
+        color:var(--muted);line-height:1.6;margin-top:14px;
+    }
+    .ld-note b{color:var(--ink)}
+    .ld-note code{font-size:12px;background:var(--card);
+                  padding:1px 6px;border-radius:4px}
+</style>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Загруженность отдела</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+        Насколько каждый сотрудник загружен открытыми задачами относительно
+        доступного времени. Цвет:
+        <b style="color:var(--blue)">синий</b> — есть резерв,
+        <b style="color:var(--green)">зелёный</b> — норма,
+        <b style="color:var(--red)">красный</b> — перегруз.
+    </p>
+
+    <div class="ld-tiles">
+        <div class="ld-tile {% if totals.overloaded %}danger{% else %}ok{% endif %}">
+            <div class="l">Перегружено</div>
+            <div class="v">{{ totals.overloaded }}</div>
+            <div class="h">загрузка &gt; 110%</div>
+        </div>
+        <div class="ld-tile info">
+            <div class="l">В норме</div>
+            <div class="v">{{ totals.ok }}</div>
+            <div class="h">60–110%</div>
+        </div>
+        <div class="ld-tile info">
+            <div class="l">Есть резерв</div>
+            <div class="v">{{ totals.underloaded }}</div>
+            <div class="h">&lt; 60%</div>
+        </div>
+        <div class="ld-tile muted">
+            <div class="l">Без задач</div>
+            <div class="v">{{ totals.no_tasks }}</div>
+        </div>
+        <div class="ld-tile">
+            <div class="l">Всего открытых</div>
+            <div class="v">{{ totals.total_open }}</div>
+            <div class="h">задач в отделе</div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="padding:0">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--line)">
+        <b>Сотрудники · {{ totals.members }}</b>
+    </div>
+
+    {% if rows %}
+    <div style="overflow-x:auto">
+        <table class="ld-tbl">
+            <thead>
+            <tr>
+                <th>Сотрудник</th>
+                <th class="num">Открытых</th>
+                <th class="num">План, ч</th>
+                <th class="num">Нужно, р.д.</th>
+                <th class="num">Окно, р.д.</th>
+                <th>Загрузка</th>
+                <th class="num">Резерв, р.д.</th>
+                <th class="num">Ближ. срок</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <a href="{% url 'manager_person' r.user.pk %}">{{ r.user.full_name }}</a>
+                    {% if r.on_vacation %}
+                    <span style="display:inline-block;padding:1px 7px;border-radius:999px;
+                             margin-left:4px;vertical-align:middle;
+                             background:color-mix(in srgb,var(--orange) 22%,transparent);
+                             color:var(--orange);font-size:10px;font-weight:700"
+                          title="{{ r.vacation_label }}">
+                    🌴 отпуск
+                </span>
+                    {% endif %}
+                    {% if r.user.department %}
+                    <div style="color:var(--muted);font-size:11px">{{ r.user.department.name }}</div>
+                    {% endif %}
+                </td>
+                <td class="num">{{ r.n_open }}</td>
+                <td class="num">{{ r.plan_sum|floatformat:1 }}</td>
+                <td class="num">{{ r.needed_days }}</td>
+                <td class="num">{{ r.window_days }}</td>
+                <td>
+                    <div class="ld-bar">
+                        <div class="ld-bar-wrap">
+                            <i class="{{ r.cls }}"
+                               style="width:{% if r.load_pct > 150 %}100{% else %}{{ r.load_pct }}{% endif %}%"></i>
+                        </div>
+                        <span class="ld-bar-pct">{{ r.load_pct }}%</span>
+                        <span class="ld-badge {{ r.cls }}">{{ r.label }}</span>
+                    </div>
+                </td>
+                <td class="num">
+                    {% if r.cls == 'empty' %}—
+                    {% else %}
+                    <span style="{% if r.reserve_days < 0 %}color:var(--red);font-weight:700{% endif %}">
+                        {{ r.reserve_days }}
+                    </span>
+                    {% endif %}
+                </td>
+                <td class="num" style="color:var(--muted);white-space:nowrap">
+                    {% if r.nearest_due %}{{ r.nearest_due|date:'d.m.Y' }}{% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--muted);padding:20px;margin:0">
+        В вашем отделе нет активных сотрудников.
+    </p>
+    {% endif %}
+
+    <div class="ld-note">
+        <b>Как считать.</b>
+        «Нужно дней» = сумма плана открытых задач ÷ дневная норма сотрудника
+        (округление вверх). «Окно» = рабочих дней от сегодня до крайнего срока
+        (максимум <code>due</code> по задачам со сроком ≥ сегодня; если у всех
+        нет срока — 30 р.д.; обрезается на 90 р.д. вперёд).
+        Загрузка = «нужно ÷ окно × 100%». <b>60–110%</b> — здоровая зона,
+        больше — риск сорвать сроки, меньше — есть резерв для новых задач.
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{# Переключатель вида реестра задач.
+Подключается в tree.html, timeline.html, calendar.html.
+Сохраняет y/m между переключениями — чтобы при переходе
+«календарь ↔ хронология» не сбрасывался на текущий месяц. #}
+<nav class="pills" style="margin-bottom:14px">
+    <a class="pill {% if registry_view == 'tree' %}on{% endif %}"
+       href="{% url 'tasks_registry' %}?view=tree{% if request.GET.y %}&y={{ request.GET.y }}{% endif %}{% if request.GET.m %}&m={{ request.GET.m }}{% endif %}"
+       title="Дерево декомпозиции задач">Дерево</a>
+
+    {% if user.is_boss or user.is_admin_role %}
+    <a class="pill {% if registry_view == 'timeline' %}on{% endif %}"
+       href="{% url 'tasks_registry' %}?view=timeline{% if request.GET.y %}&y={{ request.GET.y }}{% endif %}{% if request.GET.m %}&m={{ request.GET.m }}{% endif %}"
+       title="Диаграмма Ганта: полосы начало → срок">Хронология</a>
+    {% endif %}
+
+    <a class="pill {% if registry_view == 'calendar' %}on{% endif %}"
+       href="{% url 'tasks_registry' %}?view=calendar{% if request.GET.y %}&y={{ request.GET.y }}{% endif %}{% if request.GET.m %}&m={{ request.GET.m }}{% endif %}"
+       title="Календарь сроков на месяц">Календарь</a>
+</nav>

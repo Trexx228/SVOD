@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Заявки на сдвиг" %}
+
+<div class="card">
+    <h3 style="margin:0 0 12px">Ждут моего решения · {{ my_requests|length }}</h3>
+    {% for r in my_requests %}
+    <div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;
+                background:var(--soft);border-left:4px solid var(--orange)">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+                <b>#{{ r.pk }} · {{ r.source_task.title }}</b>
+                <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                    Исполнитель: <b>{{ r.source_task.executor.full_name }}</b> ·
+                    Отдел: {{ r.department.name }} ·
+                    Сдвиг: <b>+{{ r.shift_days }} раб. дн.</b>
+                </div>
+                <div style="font-size:13px;margin-top:6px">
+                    <b>Обоснование:</b> {{ r.reason|truncatechars:200 }}
+                </div>
+                <div style="color:var(--muted);font-size:12px;margin-top:4px">
+                    Уровень: {{ r.get_current_level_display }} ·
+                    Эскалация: {{ r.escalate_at|date:'d.m.Y H:i' }}
+                </div>
+            </div>
+            <div style="text-align:right">
+                <a class="btn blue" style="padding:6px 14px"
+                   href="{% url 'shift_request_detail' r.pk %}">Открыть</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p style="color:var(--muted);margin:0">Заявок на вас нет.</p>
+    {% endfor %}
+</div>
+
+{% if all_requests %}
+<div class="card">
+    <h3 style="margin:0 0 12px">Все активные по заводу · {{ all_requests|length }}</h3>
+    <table>
+        <thead>
+        <tr><th>#</th><th>Задача</th><th>Отдел</th><th>Сдвиг</th>
+            <th>Уровень</th><th>Эскалация</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for r in all_requests %}
+        <tr>
+            <td>{{ r.pk }}</td>
+            <td>{{ r.source_task.title|truncatechars:60 }}</td>
+            <td>{{ r.department.name }}</td>
+            <td>+{{ r.shift_days }} раб. дн.</td>
+            <td>{{ r.get_current_level_display }}</td>
+            <td>{{ r.escalate_at|date:'d.m H:i' }}</td>
+            <td><a class="pill" href="{% url 'shift_request_detail' r.pk %}">Открыть</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if history %}
+<div class="card">
+    <h3 style="margin:0 0 12px">Мои последние решения</h3>
+    <table>
+        <thead>
+        <tr><th>#</th><th>Задача</th><th>Статус</th><th>Решено</th></tr>
+        </thead>
+        <tbody>
+        {% for r in history %}
+        <tr>
+            <td>{{ r.pk }}</td>
+            <td>{{ r.source_task.title|truncatechars:60 }}</td>
+            <td>{{ r.get_status_display }}</td>
+            <td>{{ r.resolved_at|date:'d.m.Y H:i' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

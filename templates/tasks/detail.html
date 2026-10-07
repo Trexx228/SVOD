@@ -1,0 +1,697 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  .task-actions-bar{
+      display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;
+      margin:16px 0;
+  }
+  .task-actions-bar .btn{
+      min-height:42px;padding:10px 18px;font-size:14px;
+      display:inline-flex;align-items:center;justify-content:center;
+      box-sizing:border-box;
+  }
+  .task-actions-bar form{display:inline-flex;margin:0}
+
+  .task-head-info{
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+      gap:10px;margin-bottom:6px;
+  }
+  .task-head-info .cell{
+      background:var(--soft);border:1px solid var(--line);
+      border-radius:12px;padding:10px 14px;
+  }
+  .task-head-info .cell .l{
+      color:var(--muted);font-size:11px;text-transform:uppercase;
+      letter-spacing:.4px;font-weight:700;margin-bottom:4px;
+  }
+  .task-head-info .cell .v{font-size:14px;font-weight:700}
+  .task-head-info .cell .sub{
+      color:var(--muted);font-size:12px;font-weight:400;margin-top:2px;
+  }
+</style>
+
+<div style="margin-bottom:14px">
+  <a class="btn gray" href="{% url 'dashboard' %}">← Назад к моим задачам</a>
+</div>
+
+<h2 style="margin:0 0 12px">
+  {{ task.title }}
+  {% if task.status == 'pending_approval' %}
+  <span style="display:inline-block;padding:3px 12px;border-radius:999px;
+               background:color-mix(in srgb,var(--orange) 22%,transparent);
+               color:var(--orange);font-size:12px;font-weight:800;
+               margin-left:8px;vertical-align:middle">
+    ⏸ Ждёт согласования сдвига
+  </span>
+  {% endif %}
+  {% if task.pending_shift_days %}
+  <span style="display:inline-block;padding:3px 12px;border-radius:999px;
+               background:color-mix(in srgb,var(--red) 18%,transparent);
+               color:var(--red);font-size:12px;font-weight:800;
+               margin-left:8px;vertical-align:middle"
+        title="Предыдущий этап закрыт с опозданием. Руководитель должен решить: сдвинуть этап или активировать как есть.">
+    🔒 Ждёт решения: +{{ task.pending_shift_days }} д.
+  </span>
+  {% endif %}
+  {% if task.executor.is_dismissed %}
+  <span style="display:inline-block;padding:3px 12px;border-radius:999px;
+                 background:color-mix(in srgb,var(--orange) 22%,transparent);
+                 color:var(--orange);font-size:12px;font-weight:800;
+                 margin-left:8px;vertical-align:middle">
+        ⚠ исполнитель уволен
+    </span>
+  {% endif %}
+</h2>
+
+{# ── Ключевая информация: кому поставлена, кем, куда ── #}
+<div class="task-head-info">
+  <div class="cell">
+    <div class="l">Исполнитель</div>
+    <div class="v">{{ task.executor.full_name|default:'— не задан —' }}</div>
+    {% if task.executor.department %}
+    <div class="sub">{{ task.executor.department.name }}</div>
+    {% endif %}
+  </div>
+
+  <div class="cell">
+    <div class="l">Постановщик</div>
+    <div class="v">{{ task.requester.full_name|default:'—' }}</div>
+    {% if task.requester.department %}
+    <div class="sub">{{ task.requester.department.name }}</div>
+    {% endif %}
+  </div>
+
+  <div class="cell">
+    <div class="l">Статус</div>
+    <div class="v">{{ task.get_status_display }}</div>
+    {% if task.due %}
+    <div class="sub">срок {{ task.due|date:'d.m.Y' }}</div>
+    {% endif %}
+  </div>
+
+  {% if task.external_due and user.is_boss or task.external_due and user.is_admin_role or task.external_due and user == task.requester %}
+  <div class="cell">
+    <div class="l">Формальный срок</div>
+    <div class="v">{{ task.external_due|date:'d.m.Y' }}</div>
+    {% if task.due and task.due > task.external_due %}
+    <div class="sub" style="color:var(--red);font-weight:700">
+      ⚠ внутренний срок позже — просрочим
+    </div>
+    {% else %}
+    <div class="sub">обещание заказчику · исполнителю не виден</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="cell">
+    <div class="l">Заказ</div>
+    {% if task.order %}
+    <div class="v">{{ task.order.number }}</div>
+    <div class="sub">{{ task.order.product|truncatechars:40 }}</div>
+    {% else %}
+    <div class="v" style="color:var(--muted);font-weight:400">вне заказа</div>
+    {% endif %}
+  </div>
+
+  <div class="cell">
+    <div class="l">План / Затрачено</div>
+    <div class="v">
+      {% if task.rolled_plan %}{{ task.rolled_plan|floatformat:1 }} ч{% else %}—{% endif %}
+      <span style="color:var(--muted);font-weight:400">
+                / {{ task.spent_text|default:'0 мин' }}
+            </span>
+    </div>
+    {% if shop_open %}
+    <div class="sub" style="color:var(--green);font-weight:700">сейчас в цехе</div>
+    {% elif shop_total %}
+    <div class="sub">цех: {{ shop_total|floatformat:1 }} ч</div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Кнопки действий ── #}
+<div class="task-actions-bar">
+  {% if task.status == 'pending_approval' %}
+  <div style="background:color-mix(in srgb,var(--orange) 12%,var(--soft));
+              border:1px solid var(--orange);border-radius:12px;
+              padding:10px 14px;font-size:13px;margin-bottom:8px;
+              width:100%;box-sizing:border-box">
+    <b>⏸ Задача ждёт согласования сдвига плана.</b>
+    Работа начнётся после решения согласующих.
+    {% if user.is_boss or user.is_admin_role %}
+    <a class="pill" href="{% url 'shift_requests_list' %}" style="margin-left:8px">
+      К заявкам →
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if task.pending_shift_days %}
+  <div style="background:color-mix(in srgb,var(--red) 10%,var(--soft));
+              border:1px solid color-mix(in srgb,var(--red) 60%,var(--line));
+              border-radius:12px;
+              padding:10px 14px;font-size:13px;margin-bottom:8px;
+              width:100%;box-sizing:border-box">
+    <b>🔒 Этап заблокирован: предыдущий просрочен на {{ task.pending_shift_days }} раб. дн.</b>
+    {% if task.pending_shift_from_task %}
+    Предыдущий этап:
+    <a href="{% url 'task_detail' task.pending_shift_from_task.pk %}">
+      «{{ task.pending_shift_from_task.title }}»
+    </a>.
+    {% endif %}
+    {% if user.is_boss or user.is_admin_role %}
+    Решение принимается в кабинете руководителя:
+    <a class="pill" href="{% url 'manager_cabinet' %}#pending-shift" style="margin-left:8px">
+      К решениям →
+    </a>
+    {% else %}
+    Ждём решения руководителя. Как только он одобрит сдвиг или активирует
+    этап — задача станет доступна для работы.
+    {% endif %}
+  </div>
+  {% endif %}
+  <a class="btn blue" href="{% url 'task_chat' task.pk %}">💬 Чат задачи</a>
+  {% if can_decompose %}
+  <a class="btn blue" href="{% url 'task_create' %}?parent={{ task.pk }}">➕ Подзадача</a>
+  {% endif %}
+
+  {# ── Кнопки исполнителя ── #}
+  {% if task.executor_id == user.id and task.status != 'pending_approval' %}
+  {% if task.status == 'new' %}
+  <form method="post" action="{% url 'task_action' task.pk 'start' %}" style="display:inline;margin:0">
+    {% csrf_token %}<button class="btn green" type="submit">Начать</button>
+  </form>
+  {% endif %}
+
+  {% if task.status == 'in_progress' %}
+  <form method="post" action="{% url 'task_action' task.pk 'pause' %}" style="display:inline;margin:0">
+    {% csrf_token %}<button class="btn orange" type="submit">Пауза</button>
+  </form>
+  <form method="post" action="{% url 'task_action' task.pk 'review' %}" style="display:inline;margin:0">
+    {% csrf_token %}<button class="btn blue" type="submit">На проверку</button>
+  </form>
+  {% endif %}
+
+  {% if task.status == 'paused' or task.status == 'rework' %}
+  <form method="post" action="{% url 'task_action' task.pk 'resume' %}" style="display:inline;margin:0">
+    {% csrf_token %}<button class="btn green" type="submit">Продолжить</button>
+  </form>
+  {% endif %}
+
+  {% if can_shop and task.status != 'done' and task.status != 'cancelled' %}
+  {% if shop_open %}
+  <form method="post" action="{% url 'task_action' task.pk 'shop_stop' %}" style="display:inline;margin:0">
+    {% csrf_token %}<button class="btn orange" type="submit">Вернуться из цеха</button>
+  </form>
+  {% else %}
+  <form method="post" action="{% url 'task_action' task.pk 'shop_start' %}" style="display:inline;margin:0">
+    {% csrf_token %}<button class="btn blue" type="submit">Выход в цех</button>
+  </form>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+    {# ── Кнопки руководителя ── #}
+    {% if can_close and task.status != 'pending_approval' %}
+    <form method="post" action="{% url 'task_action' task.pk 'close' %}" style="display:inline;margin:0">
+        {% csrf_token %}<button class="btn green" type="submit">Задача решена</button>
+    </form>
+    {% endif %}
+
+    {# ── Сверхурочная: руководитель отдела исполнителя может внести перед/после закрытия ── #}
+    {% if can_create_overtime %}
+    <button type="button" class="btn orange" data-ot-open
+            title="Внести сверхурочную по этой задаче">
+        🚨 Сверхурочная
+    </button>
+    {% endif %}
+
+  {# Кнопка «Зафиксировать доработку» — руководитель отдела исполнителя,
+  админ портала или суперюзер (см. can_create_rework в контексте) #}
+  {% if can_create_rework %}
+  <button type="button" class="btn orange" data-rework-open
+          title="Создать подзадачу-доработку к закрытой задаче">
+    🔧 Зафиксировать доработку
+  </button>
+  {% endif %}
+  {% if can_cancel %}
+  <form method="post" action="{% url 'task_action' task.pk 'cancel' %}" style="display:inline;margin:0"
+        data-confirm="Отменить задачу? Действие необратимо.">
+    {% csrf_token %}
+    <button type="submit" class="btn red">Отменить задачу</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if task.parent %}
+<p style="color:var(--muted)">Подзадача к:
+  <a href="{% url 'task_detail' task.parent.pk %}">{{ task.parent.title }}</a>
+  (постановщик родительской задачи: {{ task.parent.requester.full_name }})
+</p>
+{% endif %}
+
+{# ── Основная таблица задачи ── #}
+<details class="card">
+  <summary style="cursor:pointer;font-weight:700">📋 Все параметры задачи</summary>
+  <table style="margin-top:12px">
+    <tr><th>Масштаб</th><td>{{ task.get_scale_display }}</td></tr>
+    <tr><th>Вид работы</th><td>{{ task.get_kind_display }}</td></tr>
+    <tr><th>Статус</th><td>{{ task.get_status_display }}</td></tr>
+    <tr><th>Приоритет</th><td>{{ task.get_priority_display }}</td></tr>
+    <tr><th>План</th><td>{% if task.rolled_plan %}{{ task.rolled_plan|floatformat:2 }} ч{% else %}оценка{% endif %}</td></tr>
+    <tr><th>Затрачено</th><td>{{ task.spent_text|default:'0 мин' }}</td></tr>
+    <tr><th>Цех</th><td>{% if shop_total %}{{ shop_total|floatformat:2 }} ч{% else %}—{% endif %}{% if shop_open %} · сейчас в цехе{% endif %}</td></tr>
+    <tr><th>Начало</th><td>{{ task.start_due|date:'d.m.Y'|default:'—' }}</td></tr>
+    <tr><th>Дедлайн</th><td>{{ task.due|date:'d.m.Y'|default:'—' }}</td></tr>
+    {% if task.external_due and user.is_boss or task.external_due and user.is_admin_role or task.external_due and user == task.requester %}
+    <tr><th>Формальный срок</th>
+      <td>{{ task.external_due|date:'d.m.Y' }}</td></tr>
+    {% endif %}
+    <tr><th>Заказ</th><td>{% if task.order %}{{ task.order }}{% else %}вне заказа{% endif %}</td></tr>
+    <tr><th>Исполнитель</th><td>{{ task.executor.full_name }}</td></tr>
+    <tr><th>Постановщик</th><td>{{ task.requester.full_name }}</td></tr>
+    <tr><th>Создана</th><td>{{ task.created_at|date:'d.m.Y H:i' }}</td></tr>
+  </table>
+</details>
+
+{# ── Цепочка этапов ── #}
+{% if chain %}
+<style>
+  .chain-h{display:flex;align-items:center;gap:8px;margin-bottom:6px;
+           font-weight:800;font-size:15px}
+  .chain-h .sub{color:var(--muted);font-weight:400;font-size:12px}
+
+  .chain{display:flex;align-items:flex-start;gap:0;overflow-x:auto;
+         padding:6px 0 12px;scrollbar-width:thin}
+  .chain-step{
+      flex:0 0 auto;display:flex;flex-direction:column;align-items:center;
+      min-width:130px;max-width:180px;text-decoration:none;color:inherit;
+      padding:6px 4px;position:relative;
+  }
+  .chain-step:hover{background:var(--soft);border-radius:10px}
+  .chain-step .dot{
+      width:36px;height:36px;border-radius:999px;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:14px;
+      background:var(--line);color:var(--muted);
+      border:2px solid transparent;flex:none;
+  }
+  .chain-step.done .dot{background:var(--green);color:#fff}
+  .chain-step.work .dot{background:var(--blue);color:#fff;
+                        animation:chainPulse 2s infinite}
+  .chain-step.review .dot{background:var(--orange);color:#fff}
+  .chain-step.over .dot{background:var(--red);color:#fff}
+  .chain-step.blocked .dot{background:var(--line);color:var(--muted)}
+  .chain-step.current .dot{
+      border-color:var(--blue);
+      box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 22%,transparent);
+  }
+  @keyframes chainPulse{
+      0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 50%,transparent)}
+      50%    {box-shadow:0 0 0 8px color-mix(in srgb,var(--blue) 0%,transparent)}
+  }
+  .chain-step .t{
+      font-size:12px;font-weight:700;margin-top:6px;text-align:center;
+      line-height:1.3;max-width:150px;overflow:hidden;
+      text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+  }
+  .chain-step .s{
+      font-size:10px;color:var(--muted);margin-top:2px;text-align:center;
+  }
+  .chain-step.current .t{color:var(--blue)}
+  .chain-step.done .t{color:var(--muted)}
+
+  .chain-arrow{
+      flex:0 0 auto;align-self:center;
+      display:inline-flex;align-items:center;justify-content:center;
+      width:24px;height:36px;color:var(--muted);font-size:16px;
+      margin-top:-22px;
+  }
+  .chain-arrow.done{color:var(--green)}
+
+  .chain-you{
+      display:inline-block;padding:1px 8px;border-radius:999px;
+      background:var(--blue);color:#fff;font-size:10px;font-weight:800;
+      margin-top:4px;letter-spacing:.3px;
+  }
+</style>
+
+<div class="card">
+  <div class="chain-h">
+    🌿 {{ chain.branch.name }}
+    {% if chain.branch.order %}
+    <span class="sub">· заказ {{ chain.branch.order.number }}</span>
+    {% endif %}
+    <span class="sub">· пройдено {{ chain.done_count }} из {{ chain.total }}</span>
+  </div>
+
+  <div class="chain">
+    {% for item in chain.items %}
+    {% if not forloop.first %}
+    <span class="chain-arrow {% if item.task.blocked_by_stage %}{% else %}{% if item.index <= chain.done_count|add:1 %}done{% endif %}{% endif %}">→</span>
+    {% endif %}
+
+    <a class="chain-step
+                {% if item.task.status == 'done' %}done
+                {% elif item.is_current %}current
+                {% elif item.task.blocked_by_stage %}blocked
+                {% elif item.task.status == 'review' %}review
+                {% elif item.task.due and item.task.due < today and item.task.status != 'done' %}over
+                {% else %}work{% endif %}"
+       href="{% url 'task_detail' item.task.pk %}"
+       title="{{ item.task.title }}">
+
+                <span class="dot">
+                    {% if item.task.status == 'done' %}✓{% else %}{{ item.index }}{% endif %}
+                </span>
+      <span class="t">{{ item.task.title|truncatechars:40 }}</span>
+      <span class="s">
+                    {{ item.task.executor.full_name|default:'—' }}
+                    {% if item.task.due %}· {{ item.task.due|date:'d.m' }}{% endif %}
+                </span>
+      {% if item.is_current %}
+      <span class="chain-you">ВЫ ЗДЕСЬ</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;
+                font-size:11px;color:var(--muted)">
+    <span>🟢 готово · 🔵 в работе · 🟠 на проверке · 🔴 просрочено · ⚪ ждёт</span>
+  </div>
+</div>
+{% endif %}
+
+{# ── Сверхурочные по этой задаче ── #}
+{% if overtime_records %}
+<div class="card" style="border-left:4px solid var(--orange)">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <b>🚨 Сверхурочные по задаче</b>
+        <span style="font-size:20px;font-weight:800;color:var(--orange)">
+            {{ overtime_total_hours|floatformat:1 }} ч
+        </span>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th style="width:110px">Дата</th>
+            <th style="width:70px">Часы</th>
+            <th>Кому</th>
+            <th>Кто внёс</th>
+            <th>Причина</th>
+            <th style="width:40px"></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for rec in overtime_records %}
+        <tr>
+            <td style="white-space:nowrap">{{ rec.date|date:'d.m.Y' }}</td>
+            <td><b style="color:var(--orange)">{{ rec.hours|floatformat:1 }}</b></td>
+            <td>{{ rec.user.full_name }}</td>
+            <td style="color:var(--muted);font-size:12px">
+                {{ rec.created_by.full_name|default:'—' }}
+            </td>
+            <td style="color:var(--muted);font-size:12px">
+                {{ rec.reason|default:'—' }}
+            </td>
+            <td>
+                {% if rec.order_file %}
+                <a href="{{ rec.order_file.url }}" target="_blank" title="Приказ">📎</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{# ── Вложения ── #}
+{% if task.attachments.all %}
+<div class="card">
+  <b>Вложения задачи</b>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+    {% for a in task.attachments.all %}
+    {% if a.image %}
+    <a href="{{ a.file.url }}" target="_blank"><img src="{{ a.file.url }}" alt="{{ a.name }}"
+                                                    style="width:120px;height:90px;object-fit:cover;border-radius:10px;border:1px solid var(--line)"></a>
+    {% else %}
+    <a class="btn gray" style="padding:6px 12px" href="{{ a.file.url }}">📄 {{ a.name }}</a>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── Правка задачи ── #}
+{% if can_edit and task.status != 'pending_approval' %}
+<div class="card">
+  <b>Правка задачи (журналируется)</b>
+  <form method="post" action="{% url 'task_edit' task.pk %}">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+      <div><label>План, ч</label><input name="plan" value="{{ task.plan_hours|default_if_none:''|floatformat:2 }}"></div>
+      <div><label>Срок начала</label><input type="date" name="start_due" value="{{ task.start_due|date:'Y-m-d' }}"></div>
+      <div><label>Срок</label><input type="date" name="due" value="{{ task.due|date:'Y-m-d' }}"></div>
+      {% if user.is_boss or user.is_admin_role or user == task.requester %}
+      <div>
+        <label>Формальный срок</label>
+        <input type="date" name="external_due"
+               value="{{ task.external_due|date:'Y-m-d' }}">
+      </div>
+      {% endif %}
+      <div><label>Приоритет</label>
+        <select name="priority">
+          {% for v, l in task.Priority.choices %}
+          <option value="{{ v }}" {% if v == task.priority %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <p style="margin-top:10px"><button class="btn blue" type="submit">Сохранить</button></p>
+    <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Каждое изменение попадает в журнал задачи и видно в отчёте качества данных.</p>
+  </form>
+</div>
+{% endif %}
+
+{# ── Описание ── #}
+<div class="card">
+  <b>Постановка задачи: что считается результатом</b>
+  <p style="white-space:pre-wrap;margin:10px 0 0">{{ task.body|default:'Описание не заполнено.' }}</p>
+</div>
+
+{# ── Прогресс ── #}
+<div class="card">
+  <b>Процесс решения (коммиты)</b>
+  {% if can_comment %}
+  <form method="post" action="{% url 'task_progress_add' task.pk %}" style="margin-top:10px">
+    {% csrf_token %}
+    <textarea name="text" rows="3" placeholder="Что сделано, что мешает, следующие шаги…"></textarea>
+    <div id="attach-box" class="attach-zone" style="margin-top:8px"></div>
+    <input type="hidden" name="attach_ids" id="attach_ids" value="">
+    <label style="display:inline-block;margin:6px 0 0;cursor:pointer">📎 Прикрепить
+      <input type="file" id="attach-input" multiple style="display:none"
+             accept=".png,.jpg,.jpeg,.gif,.webp,.bmp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+    </label>
+    <p style="margin-top:8px"><button class="btn blue" type="submit">Записать</button></p>
+  </form>
+  {% endif %}
+  {% for p in progress %}
+  <div style="border-top:1px solid var(--line);padding:10px 0">
+    <b>{{ p.author.full_name }}</b> <span style="color:var(--muted);font-size:12px">{{ p.created_at|date:'d.m.Y H:i' }}</span>
+    <div style="white-space:pre-wrap;margin-top:6px">{{ p.text }}</div>
+    {% for a in p.attachments.all %}
+    {% if a.image %}
+    <a href="{{ a.file.url }}" target="_blank"><img src="{{ a.file.url }}" alt="{{ a.name }}"
+                                                    style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid var(--line);margin-top:6px"></a>
+    {% else %}
+    <a class="btn gray" style="padding:4px 10px;margin-top:6px" href="{{ a.file.url }}">📄 {{ a.name }}</a>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% empty %}
+  <p style="color:var(--muted);margin:10px 0 0">Записей пока нет — оставьте первую, чтобы фиксировать ход решения.</p>
+  {% endfor %}
+</div>
+
+{# ── Подзадачи ── #}
+<div class="card">
+  <b>Подзадачи (переданы в работу)</b>
+  <table>
+    <tr><th>Подзадача</th><th>Исполнитель</th><th>Статус</th><th>Затрачено</th></tr>
+    {% for c in children %}
+    <tr>
+      <td><a href="{% url 'task_detail' c.pk %}">{{ c.title }}</a>{% if c.children_count %} · ещё подзадач: {{ c.children_count }}{% endif %}</td>
+      <td>{{ c.executor.full_name }} ({{ c.executor.department|default:'—' }})</td>
+      <td>{{ c.get_status_display }}</td>
+      <td>{{ c.spent_text|default:'0 мин' }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">Подзадач нет{% if can_decompose %} — создайте первой кнопкой «➕ Подзадача»{% endif %}.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+{# ── История сеансов ── #}
+<div class="card">
+  <b>История сеансов</b>
+  <table>
+    {% for s in sessions %}
+    <tr>
+      <td>{{ s.started_at|date:'d.m.Y H:i' }}</td>
+      <td>{{ s.finished_at|date:'d.m.Y H:i' }}</td>
+      <td>{{ s.duration_hours|floatformat:2 }} ч</td>
+      <td>{{ s.get_status_at_close_display }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">Сеансов ещё не было</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{# ── Модал «Зафиксировать доработку» ── #}
+{% if can_create_rework %}
+<div id="rework-modal" style="display:none;position:fixed;inset:0;z-index:200;
+     background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--card);border-radius:18px;max-width:520px;width:100%;
+              padding:26px 30px;border:1px solid var(--line)">
+    <h3 style="margin:0 0 8px">🔧 Зафиксировать доработку</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+      Будет создана подзадача к «{{ task.title }}».
+      Исполнитель: <b>{{ task.executor.full_name }}</b>.
+      Закрытая задача останется закрытой.
+    </p>
+
+    <form method="post" action="{% url 'task_rework_create' task.pk %}">
+      {% csrf_token %}
+
+      <label>План, ч (опционально)</label>
+      <input type="text" name="plan" placeholder="например, 4" inputmode="decimal">
+
+      <label>Срок (опционально)</label>
+      <input type="date" name="due">
+
+      <label>Обоснование</label>
+      <textarea name="reason" rows="3" maxlength="500"
+                placeholder="Что именно нужно доделать. Попадёт в комментарий к задаче."></textarea>
+
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button type="submit" class="btn orange" style="flex:1">Создать доработку</button>
+        <button type="button" class="btn gray" id="rework-cancel" style="flex:1">Отмена</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var btn = document.querySelector('[data-rework-open]');
+    var modal = document.getElementById('rework-modal');
+    var cancel = document.getElementById('rework-cancel');
+    if (!btn || !modal) return;
+
+    btn.addEventListener('click', function(){
+      modal.style.display = 'flex';
+    });
+    cancel.addEventListener('click', function(){
+      modal.style.display = 'none';
+    });
+    modal.addEventListener('click', function(e){
+      if (e.target === modal) modal.style.display = 'none';
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') modal.style.display = 'none';
+    });
+  })();
+</script>
+{% endif %}
+
+{# ══════════ Модал «Сверхурочная» (для карточки задачи) ══════════ #}
+{% if can_create_overtime %}
+<div id="ot-task-modal" class="ot-modal" hidden>
+    <div class="ot-modal-card">
+        <h3>🚨 Сверхурочная</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 14px">
+            Сотрудник: <b>{{ task.executor.full_name }}</b><br>
+            Задача: <b>#{{ task.pk }} · {{ task.title|truncatechars:60 }}</b>
+        </p>
+
+        <form method="post" action="{% url 'manager_overtime_create' %}"
+              enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="user" value="{{ task.executor.pk }}">
+            <input type="hidden" name="task" value="{{ task.pk }}">
+            <input type="hidden" name="next_task" value="{{ task.pk }}">
+
+            <div class="ot-row">
+                <div>
+                    <label>Дата</label>
+                    <input type="date" name="date" required
+                           value="{% now 'Y-m-d' %}">
+                </div>
+                <div>
+                    <label>Часы</label>
+                    <input type="text" name="hours" required
+                           inputmode="decimal" placeholder="2.5" autofocus>
+                </div>
+            </div>
+
+            <label>Причина</label>
+            <input type="text" name="reason" maxlength="500"
+                   placeholder="Например: аварийный ремонт, пуск после смены">
+
+            <label>Приказ (опционально)</label>
+            <input type="file" name="order_file"
+                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+
+            <div style="display:flex;gap:10px;margin-top:20px">
+                <button type="submit" class="btn orange" style="flex:1">Сохранить</button>
+                <button type="button" class="btn gray" id="ot-task-cancel" style="flex:1">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .ot-modal{
+        position:fixed;inset:0;z-index:200;
+        background:rgba(0,0,0,.65);
+        display:flex;align-items:center;justify-content:center;padding:24px;
+    }
+    .ot-modal[hidden]{display:none}
+    .ot-modal-card{
+        background:var(--card);border:1px solid var(--line);
+        border-radius:18px;padding:24px 28px;
+        max-width:520px;width:100%;
+        box-shadow:0 24px 64px rgba(0,0,0,.5);
+    }
+    .ot-modal-card h3{margin:0 0 14px;font-size:18px}
+    .ot-modal-card .ot-row{
+        display:grid;grid-template-columns:1fr 1fr;gap:10px;
+    }
+    @media(max-width:520px){.ot-modal-card .ot-row{grid-template-columns:1fr}}
+</style>
+
+<script>
+    (function(){
+        var modal = document.getElementById('ot-task-modal');
+        var openBtn = document.querySelector('[data-ot-open]');
+        var cancelBtn = document.getElementById('ot-task-cancel');
+        if (!modal || !openBtn) return;
+
+        openBtn.addEventListener('click', function(){ modal.hidden = false; });
+        cancelBtn.addEventListener('click', function(){ modal.hidden = true; });
+        modal.addEventListener('click', function(e){
+            if (e.target === modal) modal.hidden = true;
+        });
+        document.addEventListener('keydown', function(e){
+            if (e.key === 'Escape' && !modal.hidden) modal.hidden = true;
+        });
+    })();
+</script>
+{% endif %}
+{% endblock %}

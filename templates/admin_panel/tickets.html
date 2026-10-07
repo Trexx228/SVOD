@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<style>
+    .tk-filter{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;
+               align-items:end;margin-bottom:14px}
+    @media(max-width:800px){.tk-filter{grid-template-columns:1fr 1fr}}
+    .tk-filter label{margin:0 0 4px}
+
+    .tk-card{border-radius:14px;padding:14px 16px;border:1px solid var(--line);
+             background:var(--soft);margin-bottom:10px;display:flex;
+             justify-content:space-between;gap:14px;flex-wrap:wrap}
+    .tk-card.done{opacity:.6;background:color-mix(in srgb,var(--green) 4%,var(--soft))}
+    .tk-card .body{flex:1 1 340px;min-width:0}
+    .tk-card .text{white-space:pre-wrap;word-break:break-word;margin:6px 0 8px;
+                   font-size:14px;line-height:1.5}
+    .tk-meta{color:var(--muted);font-size:12px}
+    .tk-meta b{color:var(--ink)}
+    .tk-kind{display:inline-block;padding:2px 8px;border-radius:999px;
+             font-size:11px;font-weight:700;margin-left:6px}
+    .tk-kind.bug{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+    .tk-kind.idea{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .tk-kind.question{background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+    .tk-actions{display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+    .pager{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Обращения в поддержку · {{ total }}</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="pill" style="color:var(--red)">открытых: {{ open_count }}</span>
+            <span class="pill" style="color:var(--green)">обработанных: {{ done_count }}</span>
+        </div>
+    </div>
+
+    <form method="get" class="tk-filter">
+        <div>
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="Текст, страница, ФИО автора">
+        </div>
+        <div>
+            <label>Тип</label>
+            <select name="kind">
+                <option value="">— любой —</option>
+                {% for code, label in kind_choices %}
+                <option value="{{ code }}" {% if kind == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Состояние</label>
+            <select name="state">
+                <option value="">— любое —</option>
+                <option value="open" {% if state == 'open' %}selected{% endif %}>Только открытые</option>
+                <option value="done" {% if state == 'done' %}selected{% endif %}>Только обработанные</option>
+            </select>
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'settings_tickets' %}">Сброс</a>
+        </div>
+    </form>
+
+    {% for t in page %}
+    <div class="tk-card {% if t.done %}done{% endif %}">
+        <div class="body">
+            <div class="tk-meta">
+                <b>{{ t.get_kind_display }}</b>
+                <span class="tk-kind {{ t.kind }}">#{{ t.pk }}</span>
+                {% if t.done %}<span class="pill" style="padding:2px 8px;font-size:11px;
+                    color:var(--green);border-color:var(--green)">обработано</span>{% endif %}
+                · {{ t.created_at|date:'d.m.Y H:i' }}
+            </div>
+            <div class="text">{{ t.text }}</div>
+            <div class="tk-meta">
+                {% if t.author %}
+                <b>{{ t.author.full_name }}</b> · {{ t.author.email }}
+                {% else %}
+                аноним
+                {% endif %}
+                {% if t.page %}
+                · страница: <code style="font-size:11px">{{ t.page }}</code>
+                {% endif %}
+            </div>
+        </div>
+        <div class="tk-actions">
+            <form method="post" action="{% url 'settings_ticket_toggle' t.pk %}" style="margin:0">
+                {% csrf_token %}
+                {% if t.done %}
+                <button type="submit" class="btn gray" style="padding:6px 12px;font-size:13px">Вернуть в работу</button>
+                {% else %}
+                <button type="submit" class="btn green" style="padding:6px 12px;font-size:13px">Обработано</button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;color:var(--muted);padding:30px 0">
+        Обращений нет.
+    </div>
+    {% endfor %}
+
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+        {% if page.has_previous %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?{% if page_qs %}{{ page_qs }}&{% endif %}page={{ page.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

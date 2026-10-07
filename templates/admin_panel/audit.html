@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 style="margin:0 0 14px">Настройки портала</h2>
+{% include 'admin_panel/_tabs.html' %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Журнал аудита · {{ total }}</h3>
+    </div>
+
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px">
+        <div style="flex:2 1 220px">
+            <label>Поиск</label>
+            <input name="q" value="{{ q }}" placeholder="Объект, ФИО или email админа">
+        </div>
+        <div style="flex:1 1 160px">
+            <label>Действие</label>
+            <select name="action">
+                <option value="">— любое —</option>
+                {% for code, label in action_choices %}
+                <option value="{{ code }}" {% if action == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex:1 1 160px">
+            <label>Модель</label>
+            <select name="model">
+                <option value="">— любая —</option>
+                {% for m in model_choices %}
+                <option value="{{ m }}" {% if model == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn blue">Показать</button>
+        </div>
+    </form>
+
+    <div style="overflow-x:auto">
+        <table>
+            <thead>
+            <tr>
+                <th>Когда</th>
+                <th>Кто</th>
+                <th>Действие</th>
+                <th>Объект</th>
+                <th>Изменения</th>
+                <th>IP</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in page %}
+            <tr>
+                <td style="white-space:nowrap">{{ row.created_at|date:'d.m.Y H:i' }}</td>
+                <td>
+                    {% if row.actor %}{{ row.actor.full_name }}<br>
+                    <span style="color:var(--muted);font-size:12px">{{ row.actor.email }}</span>
+                    {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+                </td>
+                <td><span class="badge">{{ row.get_action_display }}</span></td>
+                <td>
+                    <code style="font-size:12px">{{ row.target_model }}</code>
+                    {% if row.target_id %} #{{ row.target_id }}{% endif %}
+                    <br><span style="font-size:12px;color:var(--muted)">{{ row.target_repr|truncatechars:60 }}</span>
+                </td>
+                <td style="font-size:12px;color:var(--muted);max-width:280px">
+                    {% if row.changes %}
+                    {% for k, v in row.changes.items %}{{ k }}: {{ v }}<br>{% endfor %}
+                    {% else %}—{% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--muted)">{{ row.ip|default:'—' }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px 0">
+                Записей нет.
+            </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+        {% if page.has_previous %}
+        <a class="pill" href="?page={{ page.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if action %}&action={{ action }}{% endif %}{% if model %}&model={{ model }}{% endif %}">← Назад</a>
+        {% endif %}
+        <span class="pill on">Стр. {{ page.number }} из {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+        <a class="pill" href="?page={{ page.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if action %}&action={{ action }}{% endif %}{% if model %}&model={{ model }}{% endif %}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

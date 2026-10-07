@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Годовой отчёт" %}
+
+{% include 'manager/_reports_subnav.html' %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card"><div class="card-body text-center">
+    <h3>{{ total_done }}</h3><p class="mb-0">Закрыто за год</p>
+  </div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body text-center">
+    <h3>{% if kpi %}{% if kpi > 300 %}&gt;300{% else %}{{ kpi }}{% endif %}%{% else %}—{% endif %}</h3>
+    <p class="mb-0">KPI план/факт</p>
+  </div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body text-center">
+    <h3>{{ otd }}%</h3><p class="mb-0">OTD (в срок)</p>
+  </div></div></div>
+</div>
+
+<h2 style="font-size:16px;margin:18px 0 10px">По месяцам</h2>
+<div class="card" style="padding:0">
+  <table>
+    <thead>
+    <tr><th>Месяц</th><th>Задач</th><th>Закрыто</th><th>План, ч</th><th>Факт, ч</th><th>KPI</th></tr>
+    </thead>
+    <tbody>
+    {% for m in months %}
+    <tr>
+      <td>{{ m.label }}</td><td>{{ m.tasks }}</td><td>{{ m.done }}</td>
+      <td>{{ m.plan }}</td><td>{{ m.fact }}</td>
+      <td>{% if m.kpi %}{% if m.kpi > 300 %}&gt;300{% else %}{{ m.kpi }}{% endif %}%{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 style="font-size:16px;margin:18px 0 10px">По подразделениям</h2>
+<div class="card" style="padding:0">
+  <table>
+    <thead>
+    <tr><th>Подразделение</th><th>Всего</th><th>Закрыто</th><th>План, ч</th><th>Факт, ч</th></tr>
+    </thead>
+    <tbody>
+    {% for dep, s in dept_stats.items %}
+    <tr>
+      <td>{{ dep }}</td><td>{{ s.total }}</td><td>{{ s.done }}</td>
+      <td>{{ s.plan|floatformat:1 }}</td><td>{{ s.fact|floatformat:1 }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
+  <button type="button" onclick="window.print()" class="btn gray">🖨️ Печать / PDF</button>
+  <a href="{% url 'yearly_report_csv' %}?year={{ year }}" class="btn blue">⬇️ Скачать (CSV)</a>
+</div>
+{% endblock %}

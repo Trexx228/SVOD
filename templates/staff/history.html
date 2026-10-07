@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>История закрытых задач</h2>
+<div class="card">
+  <table>
+    <tr>
+      <th>Название</th>
+      <th>Исполнитель</th>
+      <th>Масштаб</th>
+      <th>Статус</th>
+      <th>План{% if unit_title %}, {{ unit_title }}{% endif %}</th>
+      <th>Затрачено{% if unit_title %}, {{ unit_title }}{% endif %}</th>
+      <th>Закрыта</th>
+      <th>Описание</th>
+    </tr>
+    {% for t in tasks %}
+    <tr>
+      <td><a href="{% url 'task_detail' t.pk %}"><b>{{ t.title }}</b></a></td>
+      <td>{{ t.executor.full_name }}</td>
+      <td>{{ t.get_scale_display }}</td>
+      <td>{{ t.get_status_display }}</td>
+      <td>{{ t.plan_text }}</td>
+      <td>{{ t.spent_text }}</td>
+      <td>{{ t.finished_at|date:'d.m.Y H:i'|default:'—' }}</td>
+      <td>
+        <details>
+          <summary>открыть</summary>
+          <div style="white-space:pre-wrap;margin-top:6px">{{ t.body|default:'Описание не заполнено.' }}</div>
+        </details>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="8">Закрытых задач пока нет</td></tr>
+    {% endfor %}
+  </table>
+</div>
+<p style="color:var(--muted)">Полная карточка задачи со всеми сеансами — по клику на название.</p>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% if onboarding_offer and onboarding_done_count < 2 %}
+<div class="card" style="border-left:4px solid var(--blue);
+     background:color-mix(in srgb,var(--blue) 5%,var(--card))">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:14px;flex-wrap:wrap">
+        <div>
+            <b style="font-size:15px">🎓 Обучение СВОД</b>
+            <div style="color:var(--muted);font-size:13px;margin-top:4px">
+                Пройдите маршрут из {{ onboarding_total }} туров — это 5–7 минут.
+                Прогресс: {{ onboarding_done_count }} / {{ onboarding_total }}.
+            </div>
+        </div>
+        <button type="button" class="btn blue" data-onb-start>Начать</button>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .me-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+    .me-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+    .me-stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+    .me-stat .v{font-size:24px;font-weight:800;letter-spacing:-.01em}
+    .me-stat .h{color:var(--muted);font-size:11px;margin-top:2px}
+    .me-stat.ok .v{color:var(--green)}
+    .me-stat.info .v{color:var(--blue)}
+    .me-stat.warn .v{color:var(--orange)}
+    .me-stat.danger .v{color:var(--red)}
+
+    .me-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    @media(max-width:900px){.me-cols{grid-template-columns:1fr}}
+
+    .me-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .me-tbl th,.me-tbl td{padding:7px 10px;border-bottom:1px solid var(--line);
+                          text-align:left;vertical-align:top}
+    .me-tbl th{color:var(--muted);font-size:11px;text-transform:uppercase;
+               letter-spacing:.4px;font-weight:700}
+    .me-tbl tbody tr:hover{background:var(--soft)}
+    .me-tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+    .me-tbl a:hover{text-decoration:underline}
+
+    .me-live{background:color-mix(in srgb,var(--green) 10%,var(--soft));
+             border:1px solid color-mix(in srgb,var(--green) 40%,var(--line));
+             border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+</style>
+
+{% if active_task or active_shop %}
+<div class="me-live">
+    <b>Сейчас в работе:</b>
+    {% if active_task %}
+    задача <a href="/tasks/task/{{ active_task.pk }}/">#{{ active_task.pk }} · {{ active_task.title|truncatechars:70 }}</a>
+    {% endif %}
+    {% if active_shop %}
+    · выход в цех с {{ active_shop.started_at|date:'H:i' }} (задача #{{ active_shop.task.pk }})
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="me-grid">
+    <div class="me-stat info">
+        <div class="l">Активных задач</div>
+        <div class="v">{{ task_stats.in_progress }}</div>
+        <div class="h">на проверке: {{ task_stats.review }}</div>
+    </div>
+    <div class="me-stat ok">
+        <div class="l">Готово за 30 дней</div>
+        <div class="v">{{ task_stats.done_month }}</div>
+        <div class="h">всего: {{ task_stats.done }}</div>
+    </div>
+    <div class="me-stat {% if task_stats.overdue %}danger{% endif %}">
+        <div class="l">Просрочено</div>
+        <div class="v">{{ task_stats.overdue }}</div>
+        <div class="h">на доработке: {{ task_stats.rework }}</div>
+    </div>
+    <div class="me-stat">
+        <div class="l">Работа, ч (30 дн)</div>
+        <div class="v">{{ work_hours_month|floatformat:1 }}</div>
+    </div>
+    <div class="me-stat">
+        <div class="l">Цех, ч (30 дн)</div>
+        <div class="v">{{ shop_hours_month|floatformat:1 }}</div>
+    </div>
+</div>
+
+{% if overtime_count_month %}
+<div class="card" style="border-left:4px solid var(--orange)">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="margin:0">
+            🚨 Мои сверхурочные
+            <span style="color:var(--muted);font-weight:600;font-size:13px;margin-left:6px">
+                за текущий месяц
+            </span>
+        </h3>
+        <div style="text-align:right">
+            <div style="font-size:22px;font-weight:800;color:var(--orange)">
+                {{ overtime_hours_month|floatformat:1 }} ч
+            </div>
+            <div style="color:var(--muted);font-size:11px">
+                {{ overtime_count_month }} запис{{ overtime_count_month|pluralize:",ь,и" }}
+            </div>
+        </div>
+    </div>
+
+    <table class="me-tbl">
+        <thead>
+        <tr>
+            <th style="width:110px">Дата</th>
+            <th style="width:70px">Часы</th>
+            <th>Задача</th>
+            <th>Причина</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for rec in overtime_recent %}
+        <tr>
+            <td style="white-space:nowrap">{{ rec.date|date:'d.m.Y' }}</td>
+            <td><b style="color:var(--orange)">{{ rec.hours|floatformat:1 }}</b></td>
+            <td>
+                {% if rec.task %}
+                <a href="/tasks/task/{{ rec.task.pk }}/">
+                    #{{ rec.task.pk }} · {{ rec.task.title|truncatechars:50 }}
+                </a>
+                {% else %}
+                <span style="color:var(--muted)">без задачи</span>
+                {% endif %}
+            </td>
+            <td style="color:var(--muted);font-size:12px">
+                {{ rec.reason|default:'—' }}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {% if overtime_count_month > 5 %}
+    <p style="color:var(--muted);font-size:12px;margin:8px 0 0">
+        Показаны последние 5 записей из {{ overtime_count_month }}.
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if today_tasks %}
+<div class="card" style="border-color:color-mix(in srgb,var(--orange) 45%,var(--line))">
+    <h3 style="margin:0 0 10px">📅 На сегодня ({{ today|date:'d.m.Y' }})</h3>
+    <table class="me-tbl">
+        <thead><tr><th>Задача</th><th>Статус</th><th>Приоритет</th></tr></thead>
+        <tbody>
+        {% for t in today_tasks %}
+        <tr>
+            <td><a href="/tasks/task/{{ t.pk }}/">#{{ t.pk }} · {{ t.title|truncatechars:70 }}</a></td>
+            <td>{{ t.get_status_display }}</td>
+            <td>{{ t.get_priority_display }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="me-cols">
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="margin:0">Последние задачи</h3>
+            <a class="pill" href="{% url 'me_tasks' %}">Все →</a>
+        </div>
+        <table class="me-tbl">
+            <thead><tr><th>Задача</th><th>Статус</th><th>Срок</th></tr></thead>
+            <tbody>
+            {% for t in last_tasks %}
+            <tr>
+                <td><a href="/tasks/task/{{ t.pk }}/">#{{ t.pk }} · {{ t.title|truncatechars:45 }}</a></td>
+                <td>{{ t.get_status_display }}</td>
+                <td>{% if t.due %}{{ t.due|date:'d.m.Y' }}{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" style="color:var(--muted);padding:14px">Задач нет.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="margin:0">Последние сессии</h3>
+            <a class="pill" href="{% url 'me_sessions' %}">Все →</a>
+        </div>
+        <table class="me-tbl">
+            <thead><tr><th>Завершено</th><th>Задача</th><th>Часов</th></tr></thead>
+            <tbody>
+            {% for s in last_work %}
+            <tr>
+                <td style="white-space:nowrap">{{ s.finished_at|date:'d.m H:i' }}</td>
+                <td><a href="/tasks/task/{{ s.task.pk }}/">#{{ s.task.pk }} · {{ s.task.title|truncatechars:35 }}</a></td>
+                <td>{{ s.duration_hours|floatformat:2 }}</td>
+            </tr>
+            {% empty %}<tr><td colspan="3" style="color:var(--muted);padding:14px">Сессий нет.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

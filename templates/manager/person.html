@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title=person.full_name %}
+
+<style>
+    .pg-head{
+        display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+        margin-bottom:12px;
+    }
+    .pg-head h3{margin:0;font-size:15px;font-weight:800}
+    .pg-head .sub{color:var(--muted);font-size:12px;margin-top:2px}
+
+    .pg-badges{display:flex;gap:6px;flex-wrap:wrap}
+    .pg-badge{
+        display:inline-flex;align-items:center;gap:6px;
+        padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
+    }
+    .pg-badge.personal  {background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue)}
+    .pg-badge.department{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .pg-badge.builtin   {background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+    .pg-badge.working   {background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+    .pg-badge.off       {background:color-mix(in srgb,var(--gray) 22%,transparent);color:var(--muted)}
+
+    .pg-days{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px}
+    .pg-day{
+        width:44px;min-height:52px;padding:4px;border-radius:8px;
+        background:var(--soft);border:1px solid var(--line);
+        text-align:center;font-size:10px;line-height:1.15;
+        display:flex;flex-direction:column;justify-content:center;gap:2px;
+    }
+    .pg-day.work{background:color-mix(in srgb,var(--green) 18%,var(--soft));
+                 border-color:color-mix(in srgb,var(--green) 40%,var(--line))}
+    .pg-day.holiday{background:color-mix(in srgb,var(--red) 15%,var(--soft));
+                    border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
+    .pg-day.transfer{background:color-mix(in srgb,var(--orange) 15%,var(--soft));
+                     border-color:color-mix(in srgb,var(--orange) 40%,var(--line))}
+    .pg-day.today{outline:2px solid var(--blue);outline-offset:1px}
+    .pg-day .d{font-weight:800;font-size:13px}
+    .pg-day .wd{color:var(--muted);text-transform:uppercase;font-size:9px}
+    .pg-day .nm{font-size:9px;color:var(--muted);
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+
+<div class="card">
+    <div class="pg-head">
+        <div>
+            <h3>График работы</h3>
+            <div class="sub">
+                Приоритет: личный → отдела → встроенный 5/2.
+                Праздники РФ учитываются, если у графика включён
+                «производственный календарь».
+            </div>
+        </div>
+        {% if schedule_edit_url %}
+        <a class="pill" href="{{ schedule_edit_url }}">Редактировать график →</a>
+        {% else %}
+        <a class="pill" href="{% url 'manager_schedule_today' %}">👥 Кто сегодня</a>
+        {% endif %}
+    </div>
+
+    <div class="pg-badges">
+        <span class="pg-badge {{ schedule_source }}">{{ schedule_label }}</span>
+        {% if today_info.is_working %}
+        <span class="pg-badge working">
+            <span style="display:inline-block;width:8px;height:8px;
+                         border-radius:999px;background:var(--green)"></span>
+            Сегодня работает
+        </span>
+        {% else %}
+        <span class="pg-badge off">
+            <span style="display:inline-block;width:8px;height:8px;
+                         border-radius:999px;background:var(--gray)"></span>
+            Сегодня отдыхает
+        </span>
+        {% endif %}
+        <span class="pg-badge builtin">{{ today_info.name }}</span>
+    </div>
+
+    <div class="pg-days">
+        {% for d in schedule_preview_14 %}
+        <div class="pg-day
+            {% if d.source == 'holiday' %}holiday
+            {% elif d.source == 'transfer' %}transfer
+            {% elif d.is_working %}work
+            {% endif %}
+            {% if d.is_today %}today{% endif %}"
+             title="{{ d.date|date:'d.m.Y' }} · {{ d.name }}">
+            <span class="wd">{{ d.date|date:'D' }}</span>
+            <span class="d">{{ d.day }}</span>
+            {% if d.name and d.name != 'Рабочий день' and d.name != 'Выходной' %}
+            <span class="nm" title="{{ d.name }}">{{ d.name|truncatechars:10 }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card" style="border-left:4px solid {% if on_vacation %}var(--orange){% else %}var(--line){% endif %}">
+    <div class="pg-head">
+        <div>
+            <h3>Отпуск / больничный</h3>
+            <div class="sub">
+                Отметка не мешает ставить задачи, но отражается
+                в статусе сотрудника и в сменах. Снять можно в любой момент.
+            </div>
+        </div>
+        {% if on_vacation %}
+        <form method="post"
+              action="{% url 'manager_person_vacation_clear' person.pk %}"
+              style="margin:0"
+              data-confirm="Снять отпуск с «{{ person.full_name }}»?">
+            {% csrf_token %}
+            <button type="submit" class="btn red"
+                    style="padding:8px 16px">Снять отпуск</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if on_vacation %}
+    <div class="pg-badges">
+        <span class="pg-badge" style="background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)">
+            🌴 В отпуске
+            {% if vacation_label %}· {{ vacation_label }}{% endif %}
+        </span>
+    </div>
+    {% else %}
+    <form method="post"
+          action="{% url 'manager_person_vacation_set' person.pk %}"
+          style="margin-top:12px;display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        {% csrf_token %}
+        <div>
+            <label style="margin:0 0 4px;font-size:12px;color:var(--muted)">С</label>
+            <input type="date" name="date_from" required
+                   style="max-width:180px;margin:0">
+        </div>
+        <div>
+            <label style="margin:0 0 4px;font-size:12px;color:var(--muted)">По</label>
+            <input type="date" name="date_to" required
+                   style="max-width:180px;margin:0">
+        </div>
+        <button type="submit" class="btn orange"
+                style="padding:9px 16px">Отметить отпуск</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+        <div><b style="font-size:22px">{{ open_tasks|length }}</b><br><small style="color:var(--muted);text-transform:uppercase;font-size:11px">открытых</small></div>
+        <div><b style="font-size:22px">{{ hours|floatformat:1 }}</b><br><small style="color:var(--muted);text-transform:uppercase;font-size:11px">часов за месяц</small></div>
+        <div><b style="font-size:22px">{% if util is not None %}{{ util }}%{% else %}—{% endif %}</b><br><small style="color:var(--muted);text-transform:uppercase;font-size:11px">загрузка</small></div>
+        <div><b style="font-size:22px">{% if otd is not None %}{{ otd }}%{% else %}—{% endif %}</b><br><small style="color:var(--muted);text-transform:uppercase;font-size:11px">OTD 30 дн</small></div>
+        <div><b style="font-size:22px">{{ rework }}</b><br><small style="color:var(--muted);text-transform:uppercase;font-size:11px">возвратов</small></div>
+        <div><b style="font-size:22px">{% if kpi %}{% if kpi > 300 %}&gt;300{% else %}{{ kpi }}{% endif %}%{% else %}—{% endif %}</b><br><small style="color:var(--muted);text-transform:uppercase;font-size:11px">KPI мес.</small></div>
+        {% if manager_kpi is not None %}
+        <div title="Композитный KPI: 40% KPI отдела + 30% OTD + 20% точность планирования + 10% личный KPI">
+            <b style="font-size:22px">{{ manager_kpi }}%</b><br>
+            <small style="color:var(--muted);text-transform:uppercase;font-size:11px">KPI рук.</small>
+        </div>
+        {% endif %}
+    </div>
+
+    <div style="display:flex;align-items:flex-end;gap:6px;height:80px;margin-top:14px">
+        {% for w in weeks %}<div style="flex:1;min-height:4px;border-radius:6px 6px 0 0;height:{{ w.pct }}%;background:linear-gradient(180deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#000))" title="{{ w.label }}: {{ w.hours }} ч"></div>{% endfor %}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:4px">
+        {% for w in weeks %}<span style="flex:1;text-align:center;font-size:10px;color:var(--muted)">{{ w.label }}</span>{% endfor %}
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 8px">План недели (📌)</h3>
+    {% for c in commits %}<p style="margin:6px 0"><a href="{% url 'task_detail' c.task.pk %}">{{ c.task.title }}</a> <span class="badge">{{ c.task.get_status_display }}</span></p>
+    {% empty %}<p style="color:var(--muted);margin:0">На эту неделю обязательств нет.</p>{% endfor %}
+</div>
+
+<div class="card" style="padding:0">
+    <h3 style="margin:14px 14px 8px">Открытые задачи</h3>
+    <table>
+        <tr><th>Задача</th><th>Статус</th><th>Срок</th></tr>
+        {% for t in open_tasks %}<tr>
+        <td><a href="{% url 'task_detail' t.pk %}">{{ t.title }}</a></td>
+        <td>{{ t.get_status_display }}</td>
+        <td {% if t.due and t.due < today %}style="color:var(--red);font-weight:700"{% endif %}>{{ t.due|date:'d.m.Y'|default:'—' }}</td>
+    </tr>{% empty %}<tr><td colspan="3" style="color:var(--muted)">Открытых задач нет.</td></tr>{% endfor %}
+    </table>
+</div>
+
+<div class="card" style="padding:0">
+    <h3 style="margin:14px 14px 8px">Закрыто за месяц</h3>
+    <table>
+        <tr><th>Задача</th><th>Закрыта</th><th>Факт</th></tr>
+        {% for t in closed30 %}<tr><td>{{ t.title }}</td><td>{{ t.finished_at|date:'d.m.Y' }}</td><td>{{ t.accumulated_hours|floatformat:1 }} ч</td></tr>{% endfor %}
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+# .pre-commit-config.yaml
+# Хуки для СВОД: чистота YAML, стиль Python, единый EOF.
+# Установка: pre-commit install
+# Прогон вручную: pre-commit run --all-files
+
+repos:
+  # ── YAML-валидация ──
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        files: \.ya?ml$
+        args: ['-d', 'relaxed']
+
+  # ── Стандартные чистильщики ──
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(md|svg)$
+      - id: end-of-file-fixer
+        exclude: \.(md|svg|min\.js|min\.css)$
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+        exclude: \.(bat|cmd)$
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ['--maxkb=2048']
+
+  # ── Python: flake8 ──
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        args:
+          - --max-line-length=120
+          - --extend-ignore=E203,W503,E501,W292,W391,E221,E128,E131,E302,E303,E122
+          - --exclude=migrations,.venv,collected_static,__pycache__,node_modules
+        files: \.py$
+        types: [python]
+
+  # ── Локальный: GitLab CI lint ──
+  - repo: local
+    hooks:
+      - id: gitlab-ci-lint
+        name: Validate GitLab CI
+        entry: python scripts/gitlab_ci_lint.py
+        language: system
+        files: \.gitlab-ci\.yml$
+        pass_filenames: false

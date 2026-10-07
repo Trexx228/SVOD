@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'manager/_nav.html' with page_title="Аналитика по подразделениям" %}
+{% include 'manager/_reports_subnav.html' %}
+
+{% if is_narrow_scope %}
+<div class="card" style="background:color-mix(in srgb,var(--blue) 8%,var(--soft));
+            border-color:color-mix(in srgb,var(--blue) 40%,var(--line));
+            margin-bottom:14px;padding:10px 16px;font-size:13px">
+    Показаны данные только по вашему подразделению:
+    <b>{{ scope_department.name }}</b>.
+</div>
+{% endif %}
+
+<style>
+    .ad-filter{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;
+               align-items:end;margin-bottom:14px;max-width:640px}
+    @media(max-width:640px){.ad-filter{grid-template-columns:1fr 1fr}}
+    .ad-filter label{margin:0 0 4px}
+
+    .ad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+             gap:14px;margin-bottom:16px}
+    .ad-card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+             padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+    .ad-card h4{margin:0;font-size:16px;font-weight:800;display:flex;
+                justify-content:space-between;align-items:center;gap:8px}
+    .ad-card .people{color:var(--muted);font-size:12px}
+
+    .ad-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;
+            background:color-mix(in srgb,var(--line) 70%,transparent)}
+    .ad-bar > div{height:100%}
+
+    .ad-rows{display:flex;flex-direction:column;gap:6px;font-size:13px}
+    .ad-row{display:flex;justify-content:space-between;gap:12px}
+    .ad-row .k{color:var(--muted)}
+    .ad-row .v{font-weight:700}
+    .ad-row.warn .v{color:var(--orange)}
+    .ad-row.danger .v{color:var(--red)}
+    .ad-row.ok .v{color:var(--green)}
+
+    .ad-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+    .ad-table th,.ad-table td{padding:8px 10px;border-bottom:1px solid var(--line);
+                              text-align:left;vertical-align:middle}
+    .ad-table th{color:var(--muted);font-size:11px;text-transform:uppercase;
+                 letter-spacing:.4px;font-weight:700}
+    .ad-table .num{text-align:right;font-variant-numeric:tabular-nums}
+    .ad-table a{color:var(--blue);text-decoration:none;font-weight:600}
+    .ad-table a:hover{text-decoration:underline}
+    .ad-table tbody tr:hover{background:var(--soft)}
+</style>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+              gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Аналитика по подразделениям</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            {% if is_narrow_scope %}
+            <span class="pill">только ваш отдел: {{ scope_department.name }}</span>
+            {% endif %}
+            <a class="btn green"
+               href="{% url 'manager_reports' %}?kind=departments&date_from={{ date_from }}&date_to={{ date_to }}&format=csv">
+                CSV
+            </a>
+            <a class="btn gray"
+               href="{% url 'manager_reports' %}?kind=kpi&date_from={{ date_from }}&date_to={{ date_to }}">
+                KPI-отчёт →
+            </a>
+        </div>
+    </div>
+
+    <form method="get" class="ad-filter">
+        <input type="hidden" name="kind" value="departments">
+        <div>
+            <label>Дата с</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+            <label>Дата по</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+        </div>
+        <div style="display:flex;gap:6px">
+            <button type="submit" class="btn blue">Показать</button>
+            <a class="pill" href="{% url 'manager_reports' %}?kind=departments">Сброс</a>
+        </div>
+    </form>
+
+    <p style="color:var(--muted);font-size:13px;margin:0">
+        Период: {{ date_from }} — {{ date_to }}.
+        Подразделений в отчёте: {{ rows|length }}.
+    </p>
+</div>
+
+{% if not rows %}
+<div class="card" style="text-align:center;color:var(--muted);padding:30px 0">
+    Нет данных за период.
+</div>
+{% else %}
+
+<div class="ad-grid">
+    {% for r in rows %}
+    <div class="ad-card">
+        <h4>
+            <span>{{ r.department.name }}</span>
+            {% if r.on_time_pct >= 80 %}
+            <span class="badge" style="background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)">{{ r.on_time_pct }}% в срок</span>
+            {% elif r.on_time_pct >= 50 %}
+            <span class="badge" style="background:color-mix(in srgb,var(--orange) 22%,transparent);color:var(--orange)">{{ r.on_time_pct }}% в срок</span>
+            {% else %}
+            <span class="badge" style="background:color-mix(in srgb,var(--red) 22%,transparent);color:var(--red)">{{ r.on_time_pct }}% в срок</span>
+            {% endif %}
+        </h4>
+        <div class="people">
+            Активных: <b>{{ r.people_active }}</b> из {{ r.people_total }}
+        </div>
+
+        <div class="ad-bar" title="План vs факт">
+            <div style="background:var(--green);width:{{ r.plan_pct }}%"></div>
+            <div style="background:var(--blue);width:{{ r.fact_pct }}%"></div>
+        </div>
+
+        <div class="ad-rows">
+            <div class="ad-row">
+                <span class="k">Задач готово</span>
+                <span class="v">{{ r.tasks_done }}</span>
+            </div>
+            <div class="ad-row {% if r.tasks_overdue_all %}warn{% endif %}">
+                <span class="k">Просрочено (всего)</span>
+                <span class="v">{{ r.tasks_overdue_all }}</span>
+            </div>
+            <div class="ad-row">
+                <span class="k">План, ч / Факт, ч</span>
+                <span class="v">{{ r.plan_hours|floatformat:1 }} / {{ r.fact_hours|floatformat:1 }}</span>
+            </div>
+            <div class="ad-row {% if r.delta > 5 %}warn{% elif r.delta < -5 %}ok{% endif %}">
+                <span class="k">Δ факт−план</span>
+                <span class="v">{% if r.delta > 0 %}+{% endif %}{{ r.delta|floatformat:1 }} ч</span>
+            </div>
+            <div class="ad-row">
+                <span class="k">КПД, %</span>
+                <span class="v">{{ r.efficiency }}%</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <h3 style="margin:0 0 10px">Сводная таблица</h3>
+    <table class="ad-table">
+        <thead>
+        <tr>
+            <th>Подразделение</th>
+            <th class="num">Людей</th>
+            <th class="num">Задач готово</th>
+            <th class="num">В срок, %</th>
+            <th class="num">План, ч</th>
+            <th class="num">Факт, ч</th>
+            <th class="num">Δ, ч</th>
+            <th class="num">КПД, %</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+            <td>
+                <a href="{% url 'settings_users' %}?dept={{ r.department.pk }}">{{ r.department.name }}</a>
+            </td>
+            <td class="num">{{ r.people_active }}/{{ r.people_total }}</td>
+            <td class="num">{{ r.tasks_done }}</td>
+            <td class="num">
+                {% if r.on_time_pct >= 80 %}
+                <span style="color:var(--green);font-weight:700">{{ r.on_time_pct }}%</span>
+                {% elif r.on_time_pct >= 50 %}
+                <span style="color:var(--orange);font-weight:700">{{ r.on_time_pct }}%</span>
+                {% else %}
+                <span style="color:var(--red);font-weight:700">{{ r.on_time_pct }}%</span>
+                {% endif %}
+            </td>
+            <td class="num">{{ r.plan_hours|floatformat:1 }}</td>
+            <td class="num">{{ r.fact_hours|floatformat:1 }}</td>
+            <td class="num">
+                {% if r.delta > 0 %}<span style="color:var(--red);font-weight:700">+{{ r.delta|floatformat:1 }}</span>
+                {% elif r.delta < 0 %}<span style="color:var(--green);font-weight:700">{{ r.delta|floatformat:1 }}</span>
+                {% else %}0,0{% endif %}
+            </td>
+            <td class="num">{{ r.efficiency }}%</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+        <tr style="background:var(--soft);font-weight:800">
+            <td>ИТОГО</td>
+            <td class="num">{{ grand.people_active }}/{{ grand.people_total }}</td>
+            <td class="num">{{ grand.tasks_done }}</td>
+            <td class="num">{{ grand.on_time_pct }}%</td>
+            <td class="num">{{ grand.plan_hours|floatformat:1 }}</td>
+            <td class="num">{{ grand.fact_hours|floatformat:1 }}</td>
+            <td class="num">{% if grand.delta > 0 %}+{% endif %}{{ grand.delta|floatformat:1 }}</td>
+            <td class="num">{{ grand.efficiency }}%</td>
+        </tr>
+        </tfoot>
+    </table>
+</div>
+
+{% endif %}
+{% endblock %}
